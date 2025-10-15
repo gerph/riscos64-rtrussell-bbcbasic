@@ -12,12 +12,10 @@
 
 TARGET ?= bbcbasic
 
-CROSS_ROOT = ${shell echo $$CROSS_ROOT}
+CLIB_VERSION = 0.20
+CLIB_URL = https://github.com/gerph/riscos64-simple-binaries/releases/download/v${CLIB_VERSION}/RISCOS64-CLib-${CLIB_VERSION}.zip
 
 ALL_TARGETS = bbcbasic
-
-CLIB_VERSION = 0.12
-CLIB_URL = https://github.com/gerph/riscos64-simple-binaries/releases/download/v${CLIB_VERSION}/RISCOS64-CLib-${CLIB_VERSION}.zip
 
 
 targetted:
@@ -26,32 +24,17 @@ targetted:
 all:
 	for i in ${ALL_TARGETS} ; do make $$i,ff8 TARGET=$$i || exit $$? ; done
 
-shell: dockcross-linux-arm64
-	./dockcross-linux-arm64 bash
-
-dockcross-linux-arm64:
-	docker run --rm dockcross/linux-arm64:latest > dockcross-linux-arm64
-	chmod +x dockcross-linux-arm64
-
 clean:
-	-rm -rf *.o *.a *.bin *,ff8 *.map clib
+	-rm -rf *.o *.a *.bin *,ff8 *.map tools clib
 
-ifeq (${CROSS_ROOT},)
-# If we're outside the docker container, re-run ourselves inside the container
+.PHONY: tools
 
-CLIBDIR = $(shell realpath clib)
-CRT_OBJS = clib/libcrt.a
+tools: clib/libcrt.a
+	mkdir -p tools
+	clib/bin/robuild64 install tools
 
-ifneq ($(filter-out all shell dockcross-linux-arm64 clean,${MAKECMDGOALS}),)
-# The command wasn't one of our invocation commands above
-.PHONY: ${MAKECMDGOALS}
-${MAKECMDGOALS}: dockcross-linux-arm64 ${CRT_OBJS}
-	cd ../.. && console/riscos64/dockcross-linux-arm64 --args "-v ${CLIBDIR}:/ro64/clib" -- bash -c "cd console/riscos64 && make ${MAKECMDGOALS} TARGET=${TARGET}"
-else
-.PHONY: ${DEFAULT_GOAL}
-${DEFAULT_GOAL}: dockcross-linux-arm64 ${CRT_OBJS}
-	./dockcross-linux-arm64 --args "-v ${CLIBDIR}:/ro64/clib" -- bash -c "cd . && make ${MAKECMDGOALS} TARGET=${TARGET}"
-endif
+TOOLS ?= tools
+CLIBDIR = ${TOOLS}/riscos64_resources
 
 clib/clib-${CLIB_VERSION}.zip:
 	mkdir -p clib
@@ -60,56 +43,23 @@ clib/clib-${CLIB_VERSION}.zip:
 clib/libcrt.a: clib/clib-${CLIB_VERSION}.zip
 	cd clib && unzip -o clib-${CLIB_VERSION}.zip && touch libcrt.a
 
-else
-# We are within the docker container
-
-CLIBDIR = /ro64/clib
 
 CRT_OBJS = 	${CLIBDIR}/libcrt.a
 
 VPATH = ../../src ../../include ../../../BBCSDL/src ../../../BBCSDL/include
 
 
-
-USE_FUNC_SIGNATURE ?= 1
-
-# Remove the flags that might make code think it's compiling for linux system.
-CFLAGS = -U__linux -U__linux__ -U__unix__ -U__unix -Ulinux -Uunix -U__gnu_linux__
-
-# Add the definitions to indicate that we're compiling for RISC OS
-CFLAGS += -D__riscos -D__riscos64
-
-# Allow us to build without assuming the standard library is present
-CFLAGS += -nostdlib -ffreestanding -march=armv8-a
-#CFLAGS += -nostdlib -ffreestanding -march=armv8-a+nofp
-
-# Add the exports directory to those things we'll build with
-CFLAGS += -I${CLIBDIR}/C -I${CLIBDIR}/Lib/ -I${CLIBDIR}
-
-# Options to allow function signatures to appear RISC OS-like
-ifeq (${USE_FUNC_SIGNATURE},1)
-CFLAGS += -fpatchable-function-entry=20,20
-endif
-
-# Optimisation options
-CFLAGS += -O1
-
-# Options for this build
-CFLAGS += 
+# C flags for this project
+CFLAGS = 
 
 # Assembler flags
 AFLAGS = -march=armv8-a
 
-# Flags for the linker
-LDFLAGS = -T link.lnk -e _aif64_entry
-
-CC = aarch64-unknown-linux-gnu-gcc ${CFLAGS}
-CXX = aarch64-unknown-linux-gnu-gcc ${CFLAGS}
-AS = aarch64-unknown-linux-gnu-as ${AFLAGS}
-LD = aarch64-unknown-linux-gnu-ld
-AR = aarch64-unknown-linux-gnu-ar
-OBJCOPY = aarch64-unknown-linux-gnu-objcopy
-OBJDUMP = aarch64-unknown-linux-gnu-objdump
+CC = RISCOS64_RELDIRS=2 ${TOOLS}/riscos64-cc ${CFLAGS}
+AS = RISCOS64_RELDIRS=2 ${TOOLS}/riscos64-as ${AFLAGS}
+LD = RISCOS64_RELDIRS=2 ${TOOLS}/riscos64-link
+AR = RISCOS64_RELDIRS=2 ${TOOLS}/riscos64-libfile
+CXX = ${CC}
 
 
 CFLAGS += -Wall -I ../../include -I ../../../BBCSDL/include
@@ -151,19 +101,5 @@ bbdata.o: ../../src/bbdata_arm_ro64.s
 %.o: %.s
 	${AS} ${AFLAGS} -o $@ $?
 
-${TARGET}.bin: link.lnk ${OBJS} ${CRT_OBJS}
-	${LD} ${OBJS} ${CRT_OBJS} ${LDFLAGS} -o $@
-
-${TARGET}.syms: ${TARGET}.bin
-	${OBJDUMP} -t $? > $@
-
-ifeq (${USE_FUNC_SIGNATURE},1)
-${TARGET},ff8: ${TARGET}.bin ${TARGET}.syms
-	${OBJCOPY} -O binary -j .text ${TARGET}.bin $@
-	python ${CLIBDIR}/bin/riscos_symbols.py ${TARGET}.syms $@
-else
-${TARGET},ff8: ${TARGET}.bin
-	${OBJCOPY} -O binary -j .text ${TARGET}.bin $@
-endif
-
-endif
+${TARGET},ff8: ${OBJS}
+	${LD} -aif ${OBJS} -lcrt -o $@
