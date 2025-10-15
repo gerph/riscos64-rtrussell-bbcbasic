@@ -37,6 +37,7 @@ jobs:
       - name: Build the BASIC tool
         run: |
           cd console/riscos64
+          make tools
           make
 
       - name: Build the archive

@@ -46,7 +46,7 @@ clib/libcrt.a: clib/clib-${CLIB_VERSION}.zip
 
 CRT_OBJS = 	${CLIBDIR}/libcrt.a
 
-VPATH = ../../src ../../include ../../../BBCSDL/src ../../../BBCSDL/include
+VPATH = ../../src ../../include
 
 
 # C flags for this project

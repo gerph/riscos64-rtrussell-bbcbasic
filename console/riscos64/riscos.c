@@ -1,45 +1,60 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <assert.h>
+#include <stdbool.h>
 #include "kernel.h"
 #include "swis.h"
+
+#define MAX_PATH 260
+
+#include "swis_os.h"
 
 
 int chdir(const char *dir)
 {
-    /* FIXME */
-    return 0;
+    return (os_fscontrol2(0, dir) == NULL) ? 0 : -1;
 }
 
 int mkdir(const char *dir, int mode)
 {
-    /* FIXME */
-    return 0;
+    return (os_file2(8, dir) == NULL) ? 0 : -1;
 }
 
 int rmdir(const char *dir)
 {
-    /* FIXME */
-    return 0;
+    return remove(dir) ? 0 : -1;
 }
 
 int chmod(const char *file, int mode)
 {
-    /* FIXME */
+    /* No implementation on RISC OS */
     return 0;
 }
 
 
 char *realpath(const char *filename, char *result_path)
 {
-    /* FIXME */
-    return NULL;
+    _kernel_oserror *err;
+    bool alloced = false;
+    if (result_path == NULL)
+    {
+        alloced = true;
+        result_path = malloc(MAX_PATH);
+        if (result_path == NULL)
+            return NULL;
+    }
+    err = _swix(OS_FSControl, _INR(0,5), 37, filename, result_path,
+                                         NULL, NULL, MAX_PATH);
+    if (err && alloced)
+        free(result_path);
+    return err == NULL ? result_path : NULL;
 }
 
 char *getcwd(void)
 {
-    /* FIXME */
-    return NULL;
+    static char buf[1024];
+    return realpath("@", buf);
 }
 
 ssize_t write(int fileno, char *data, size_t size)
