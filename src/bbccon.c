@@ -1,10 +1,10 @@
-/******************************************************************\
-*       BBC BASIC Minimal Console Version                          *
-*       Copyright (C) R. T. Russell, 2021-2024                     *
-*                                                                  *
-*       bbccon.c Main program, Initialisation, Keyboard handling   *
-*       Version 0.46a, 03-Apr-2024                                 *
-\******************************************************************/
+/*****************************************************************\
+*       BBC BASIC Minimal Console Version                         *
+*       Copyright (C) R. T. Russell, 2021-2025                    *
+*                                                                 *
+*       bbccon.c Main program, Initialisation, Keyboard handling  *
+*       Version 0.48a, 13-Feb-2025                                *
+\*****************************************************************/
 
 #define _GNU_SOURCE
 #define __USE_GNU
@@ -491,6 +491,12 @@ int vtint (int x, int y)
 {
 	error (255, "Sorry, not implemented") ;
 	return -1 ;
+}
+
+// Get current MODE number:
+int getmodeno (void)
+{
+	return modeno ;
 }
 
 // Get nearest palette index:
@@ -1716,6 +1722,12 @@ long long getext (void *chan)
 		return newptr ;
 	return size ;
 #endif
+}
+
+// Set file size (if possible):
+void setext (void *chan, long long ptr)
+{
+	error (255, "Sorry, not implemented") ;
 }
 
 // Get EOF status:

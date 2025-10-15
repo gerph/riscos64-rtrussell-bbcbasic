@@ -1,13 +1,13 @@
 /*****************************************************************\
 *       32-bit or 64-bit BBC BASIC Interpreter                    *
-*       (C) 2017-2024  R.T.Russell  http://www.rtrussell.co.uk/   *
+*       (C) 2017-2025  R.T.Russell  http://www.rtrussell.co.uk/   *
 *                                                                 *
 *       The name 'BBC BASIC' is the property of the British       *
 *       Broadcasting Corporation and used with their permission,  *
-*       it is not transferrable to a forked or derived work.      *                                                          *
+*       it is not transferrable to a forked or derived work.      *
 *                                                                 *
 *       bbexec.c: Variable assignment and statement execution     *
-*       Version 1.40a, 28-Apr-2024                                *
+*       Version 1.43a, 23-Sep-2025                                *
 \*****************************************************************/
 
 #include <string.h>
@@ -90,6 +90,7 @@ void *osopen (int, char *) ;	// Open a file
 unsigned char osbget (void *, int*) ; // Read a byte from a file
 void osbput (void *, unsigned char) ; // Write a byte to a file
 void setptr (void *, long long) ;	// Set the file pointer
+void setext (void *, long long) ;	// Set the file size
 long long getext (void *) ;	// Get file length
 void osshut (void *) ;		// Close file(s)
 void osload (char*, void *, unsigned int) ; // Load a file to memory
@@ -252,6 +253,19 @@ void storen (VAR v, void *ptr, unsigned char type)
 			memcpy (ptr, &v.s.p, 8) ; // may be unaligned
 			break ;
 
+		case 32:
+			{
+			union { int i; float f; } u ;
+			if (v.i.t == 0)
+				v.f = v.i.n ;
+			u.f = v.f ;
+			if ((u.i == 0x7F800000) || (u.i == 0xFF800000))
+				error (20, NULL) ; // 'Number too big'
+			ISTORE(ptr, u.i) ;
+
+			break ;
+			}
+
 		case 36:
 			VSTORE(ptr, (void *) (size_t) v.i.n) ;
 			break ;
@@ -336,7 +350,7 @@ static void assign (void *ptr, unsigned char type)
 	if (op != '=')
 	    {
 		if ((op == '+') || (op == '-') || (op == '*') || (op == '/') ||
-			((op >= TAND) & (op <= TOR)))
+			(op == '^') || ((op >= TAND) && (op <= TOR)))
 			equals () ;
 		else
 			error (4, NULL) ; // Mistake
@@ -491,7 +505,7 @@ static void plot (int n, int x, int y)
 }
 
 // Create a 'secret' variable name based on code pointer, for use by PRIVATE:
-static char *secret (char *p, unsigned char type)
+char *secret (char *p, unsigned char type)
 {
 	unsigned int i, ebp = 54 , eax = esi - (signed char *) zero ;
 	eax = (eax << 1) | (eax > ((void *) esp - zero)) ; // library bit in LSB
@@ -1949,7 +1963,13 @@ VAR xeq (void)
 /************************************  EXT  ************************************/
 
 			case TEXTR:
-				error (255, "Sorry, not implemented") ;
+				{
+				long long n ;
+				void *chan = channel () ;
+				equals () ;
+				n = expri () ;
+				setext (chan, n) ;
+				}
 
 /************************************ PAGE *************************************/
 
@@ -2037,7 +2057,7 @@ VAR xeq (void)
 					{
 					unsigned char type ;
 					void *ptr ;
-					if ((int) datptr == NULL - (void *) zero)
+					if (datptr == (unsigned int) (NULL - (void *) zero))
 						error (42, NULL) ; // 'Out of DATA'
 					signed char *edx = datptr + (signed char *) zero ;
 					while (1)
@@ -2122,9 +2142,10 @@ VAR xeq (void)
 							VAR v ;
 							char *p = pfree + (char *) zero ;
 							int i, size = 5 ;
-							if (liston & BIT0) size = 8 ;
-							if (liston & BIT1) size = 10 ;
-							for (i = 0; i < size; i++)
+							if ((liston & 3) == 1) size = 8 ;
+							if ((liston & 3) == 2) size = 32 ;
+							if ((liston & 3) == 3) size = 10 ;
+							for (i = 0; i < (size > 10 ? 4 : size); i++)
 								*p++ = osbget (chan, NULL) ;
 							v = loadn (pfree + zero, size) ;
 							storen (v, ptr, type) ;
@@ -2249,10 +2270,11 @@ VAR xeq (void)
 						    {
 							char *p = pfree + (char *) zero ;
 							int i, size = 5 ;
-							if (liston & BIT0) size = 8 ;
-							if (liston & BIT1) size = 10 ;
+							if ((liston & 3) == 1) size = 8 ;
+							if ((liston & 3) == 2) size = 32 ;
+							if ((liston & 3) == 3) size = 10 ;
 							storen (v, p, size) ;
-							for (i = 0; i < size; i++)
+							for (i = 0; i < (size > 10 ? 4 : size); i++)
 								osbput (chan, *p++) ;
 						    }
 						else
@@ -3017,7 +3039,7 @@ VAR xeq (void)
 					v = loadn (ptr, type) ;
 					s.i.t = *(short *)(esp + 4 + STRIDE) ;
 					s.i.n = *(long long *)(esp + 2 + STRIDE) ;
-#if defined __GNUC__ && __GNUC__ < 5
+#ifndef __builtin_saddll_overflow
 					if ((v.i.t == 0) && (s.i.t == 0) && ((((tmpll = v.i.n + s.i.n) ^
 						             v.i.n) >= 0) || ((int)(v.s.l ^ s.s.l) < 0)))
 #else
@@ -3816,7 +3838,7 @@ VAR xeq (void)
 							unsigned int eax = *(int *)(esp + i) ;
 							ISTORE(edi, eax) ;
 							edi += 4 ;
-#if defined __GNUC__ && __GNUC__ < 5
+#ifndef __builtin_umul_overflow
 							ebx *= eax ;
 #else
 							if (__builtin_umul_overflow (eax, ebx, &ebx))
@@ -4253,7 +4275,7 @@ VAR xeq (void)
 					if (op != '=')
 					    {
 						if ((op == '+') || (op == '-') || (op == '*') || (op == '/') ||
-								((op >= TAND) & (op <= TOR)))
+						    (op == '^') || ((op >= TAND) && (op <= TOR)))
 							equals () ;
 						else
 							error (4, NULL) ; // Mistake

@@ -1,15 +1,15 @@
 /******************************************************************\
 *       BBC BASIC Minimal Console Version                          *
-*       Copyright (c) R. T. Russell, 2000-2024                     *
+*       Copyright (c) R. T. Russell, 2000-2025                     *
 *                                                                  *
 *       bbccon.h constant definitions                              *
-*       Version v0.46, 03-Apr-2024                                 *
+*       Version v0.50, 22-Sep-2025                                 *
 \******************************************************************/
 
 // System constants :
 
-#define YEAR    "2024"          // Copyright year
-#define VERSION "v0.46"         // Version string
+#define YEAR    "2025"          // Copyright year
+#define VERSION "v0.50"         // Version string
 #ifdef PICO
 #define ACCSLEN 1024  // Must be the same in bbcsdl.h and bbccon.h
 #define DEFAULT_RAM PAGE_OFFSET+0x20000 // Initial amount of RAM to allocate
@@ -138,6 +138,7 @@ typedef struct tagRND
 extern unsigned char colmsk ; 	// Mask for maximum number of colours
 extern unsigned char vflags ;	// VDU drivers flags byte
 extern signed char scroln ; 	// Scroll counter in paged mode
+extern char modeno ;		// MODE number
 extern unsigned char cmcflg ;
 extern char sclflg ;
 extern char reflag, sysflg ;

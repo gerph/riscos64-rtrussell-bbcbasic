@@ -1,13 +1,14 @@
 /*****************************************************************\
 *       32-bit or 64-bit BBC BASIC Interpreter                    *
-*       (C) 2017-2024  R.T.Russell  http://www.rtrussell.co.uk/   *
+*       (C) 2017-2025  R.T.Russell  http://www.rtrussell.co.uk/   *
 *                                                                 *
 *       The name 'BBC BASIC' is the property of the British       *
 *       Broadcasting Corporation and used with their permission,  *
-*       it is not transferrable to a forked or derived work.      *                                                          *
+*       it is not transferrable to a forked or derived work.      *
+*                                                                 *
 *                                                                 *
 *       bbmain.c: Immediate mode, error handling, variable lookup *
-*       Version 1.40a, 03-Apr-2024                                *
+*       Version 1.43a, 04-Sep-2025                                *
 \*****************************************************************/
 
 #include <stdlib.h>
@@ -34,11 +35,16 @@ void oscli (char*) ;            // Command Line Interface
 
 // Routines in bbexec:
 VAR xeq (void) ;		// Execute program
+char *secret (char *, unsigned char) ;
 
 // Routines in bbeval:
 long long itemi (void);		// Return an integer numeric item
 long long expri (void);		// Evaluate an integer numeric expression
 long long loadi (void *, unsigned char) ;
+
+// Forward references:
+void *getvar (unsigned char *) ;
+void *putvar (void *, unsigned char *) ;
 
 // Global jump buffer:
 jmp_buf env ;
@@ -655,8 +661,10 @@ void clear (void)
 	signed char *top = gettop (ebx, &fastvars) ;
 	if (top == NULL)
 	    {
-		error (0, "Bad program") ;
-		return ;
+		*(signed char *)(vpage + zero) = 0 ;
+		text ("Bad program") ;
+		crlf () ;
+		error (256, NULL) ;
 	    }
 	*(top+1) = 0xFF ;
 	*(top+2) = 0xFF ;
@@ -923,23 +931,66 @@ int arrlen (void **pebx)
 static unsigned int getsub (void **pebx, unsigned char *ptype)
 {
 	int dims ;
+	unsigned int eax ;
 	unsigned char *ebx = (unsigned char*) CLOAD(pebx) ;
-	unsigned int edx = 0 ;
+	unsigned int ecx, edx = 0 ;
 	if (ebx < (unsigned char*)2)
 		error(14, NULL) ; // 'Bad use of array'
 	dims = *ebx++ ;
 	while (1)
 	    {
-		unsigned int n = expri () ;
-		int ecx = ULOAD(ebx) ;
+		eax = expri () ;
+		ecx = ULOAD(ebx) ;
 		ebx += 4 ;
-		if (n >= ecx)
-			error (15, NULL) ; // 'Subscript out of range'
-		edx = edx * ecx + n ;
-		if (--dims > 0) comma () ; else { braket () ; break ; }
+		if (eax >= ecx)
+			error (15, NULL) ; // 'Bad subscript'
+		edx = edx * ecx + eax ;
+		if (--dims > 0) comma () ; else break ;
 	    }
 	if (dims == 0) *pebx = ebx ; else *pebx = VLOAD(ebx) ;
 	edx *= (*ptype & TMASK) ;
+	if (*esi == TTO)
+	    {
+		unsigned int n ;
+		signed char *oldesi ;
+		void *ebp ;
+		unsigned char pok = 0 ;
+		char *edi = accs ;
+
+		esi++ ;
+		if (nxt () == ')')
+			n = ecx ;
+		else
+			n = expri () + 1 ;
+		if ((n > ecx) || (n <= eax))
+			error (15, NULL) ; // 'Bad subscript'
+		n -= eax ;
+
+		edi = secret (edi, *ptype) ;
+		*edi++ = '(' ;
+		*edi++ = ')' ;
+		*edi = 0x0D ;
+
+		oldesi = esi ;
+		esi = (signed char*) accs ;
+		ebp = getvar (&pok) ;
+
+		if (pok == 0)
+		    {
+			ebp = putvar (ebp, &pok) ;
+			pfree = ebp + 2 * sizeof(void*) + 5 - zero ;
+		    }
+		VSTORE(ebp, ebp + sizeof(void*)) ;
+		*(unsigned char *) (ebp + sizeof(void*)) = 0 ;
+		USTORE(ebp + sizeof(void*) + 1, n) ;
+		VSTORE(ebp + sizeof(void*) + 5, *pebx + edx) ;
+
+		esi = oldesi ;
+		edx = 0 ;
+		*pebx = ebp ;
+		*ptype |= BIT6 ;
+	    }
+	braket () ;
 	return edx ;
 }
 
@@ -1264,7 +1315,7 @@ static void *locate (unsigned char *ptype)
 // If invalid, return NULL.
 // If not found, return pointer to linked-list terminator and set type to 0.
 // If found, return pointer to variable (etc.) and set type as appropriate.
-// Types are: 1, 4, 5, 8, 10, 40 numeric
+// Types are: 1, 4, 5, 8, 10, 32, 40 numeric
 //            128, 130, 136 string
 //            16/24, 80/88 structure, structure array
 //            36, 100 function or procedure
@@ -1299,6 +1350,8 @@ void * getvar (unsigned char *ptype)
 			*ptype = 5 ;
 		else if ((liston & 3) == 1)
 			*ptype = 8 ;
+		else if ((liston & 3) == 2)
+			*ptype = 32 ;
 		else
 			*ptype = 10 ;
 
@@ -1365,6 +1418,8 @@ void * getvar (unsigned char *ptype)
 					esi++ ;
 					ebx += 4 ; // n.b. GCC extension: sizeof(void) = 1
 					ebx = ebp + getsbs (ebx, ptype) ;
+					if ((*ptype & BIT6) != 0)
+						error (56, NULL) ; // 'Bad use of structure'
 				    }
 				else
 					ebx = ebp ;
@@ -1539,13 +1594,14 @@ int basic (void *ecx, void *edx, void *prompt)
 #ifdef PICO
 	libtop = edx ;
 #endif
-	clear () ;
+	errcode = setjmp (env) ; // In case of 'Bad program'
+	if (errcode == 0) clear () ; 
 	datptr = search (vpage + (signed char *) zero, TDATA) - (signed char *) zero ;
 
 	esi = vpage + 3 + (signed char *) zero ;
 	esp = (heapptr *)((himem + (size_t) zero) & -4) ;
 
-	errcode = (setjmp (env)) ; // >0 = error, <0 = QUIT, 256 = END/STOP
+	if (errcode == 0) errcode = setjmp (env) ; // >0 = error, <0 = QUIT, 256 = END/STOP
 
 	if (errcode < 0)
 		return ~errcode ;

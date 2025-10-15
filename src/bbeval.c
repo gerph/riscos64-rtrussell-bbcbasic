@@ -1,19 +1,20 @@
 /*****************************************************************\
 *       32-bit or 64-bit BBC BASIC Interpreter                    *
-*       (C) 2017-2024  R.T.Russell  http://www.rtrussell.co.uk/   *
+*       (C) 2017-2025  R.T.Russell  http://www.rtrussell.co.uk/   *
 *                                                                 *
 *       The name 'BBC BASIC' is the property of the British       *
 *       Broadcasting Corporation and used with their permission,  *
-*       it is not transferrable to a forked or derived work.      *                                                          *
+*       it is not transferrable to a forked or derived work.      *
 *                                                                 *
 *       bbeval.c: Expression evaluation, functions and arithmetic *
-*       Version 1.40a, 01-Jun-2024                                *
+*       Version 1.43a, 22-Sep-2025                                *
 \*****************************************************************/
 
 #define __USE_MINGW_ANSI_STDIO 1
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
@@ -93,6 +94,7 @@ long long getptr (void*) ;	// Get file pointer
 long long getext (void*) ;	// Get file length
 long long geteof (void*) ;	// Get EOF status
 void *sysadr (char *) ;		// Get the address of an API function
+int getmodeno (void) ;		// Get the current MODE number
 
 // Global jump buffer:
 extern jmp_buf env ;
@@ -197,7 +199,12 @@ int strhex (VAR v, char *dst, int field)
 		n = v.i.n ;
 
 	if ((liston & BIT2) == 0)
+	    {
+		int i = n ;
+		if (i != n)
+			error (20, NULL) ; // 'Number too big'
 		n &= 0xFFFFFFFF ;
+	    }
 
 	return sprintf(dst, fmt, field, n) ;
 }
@@ -353,7 +360,7 @@ VAR cons (void)
 }
 
 // Load a numeric variable:
-// type is 1, 4, 5, 8, 10, 36 or 40
+// type is 1, 4, 5, 8, 10, 32, 36 or 40
 VAR loadn (void *ptr, unsigned char type)
 {
 	VAR v ;
@@ -421,6 +428,15 @@ VAR loadn (void *ptr, unsigned char type)
 			// v.s.l = *(int *)((char *)ptr + 4) ;
 			memcpy (&v.s.p, ptr, 8) ; // may be unaligned
 			break ;
+
+		case 32:
+			{
+			union { int i; float f; } u ;
+			u.i = ILOAD(ptr) ;
+			v.i.t = 1 ; // ARM
+			v.f = u.f ;
+			break ;
+			}
 
 		case 36:
 			v.i.t = 0 ;
@@ -571,7 +587,7 @@ VAR math (VAR x, signed char op, VAR y)
 		case '+':
 			if ((x.i.t == 0) && (y.i.t == 0))
 			    {
-#if defined __GNUC__ && __GNUC__ < 5
+#ifndef __builtin_saddll_overflow
 				long long sum = x.i.n + y.i.n ;
 				if (((int)(x.s.l ^ y.s.l) < 0) || ((sum ^ x.i.n) >= 0))
 #else
@@ -590,7 +606,7 @@ VAR math (VAR x, signed char op, VAR y)
 		case '-':
 			if ((x.i.t == 0) && (y.i.t == 0))
 			    {
-#if defined __GNUC__  && __GNUC__ < 5
+#ifndef __builtin_ssubll_overflow
 				long long dif = x.i.n - y.i.n ;
 				if (((int)(x.s.l ^ y.s.l) >= 0) || ((dif ^ x.i.n) >= 0))
 #else
@@ -613,19 +629,26 @@ VAR math (VAR x, signed char op, VAR y)
 				return y ;
 			if ((x.i.t == 0) && (y.i.t == 0))
 			    {
-#if defined __GNUC__  && __GNUC__ < 5
-				long long prod = x.i.n * y.i.n ;
-				if ((x.i.n != 0x8000000000000000) && (y.i.n != 0x8000000000000000) &&
-					((__builtin_clzll(x.i.n) + __builtin_clzll(~x.i.n) +
-					  __builtin_clzll(y.i.n) + __builtin_clzll(~y.i.n)) > 63))
+#ifndef __builtin_smulll_overflow
+				int lz = __builtin_clzll(x.i.n) + __builtin_clzll(~x.i.n) +
+			                 __builtin_clzll(y.i.n) + __builtin_clzll(~y.i.n) ;
+				if ((lz > 64) || ((lz == 64) && (
+				  ((x.i.n >= 0) && (y.i.n >= 0) && (x.i.n <= INT64_MAX / y.i.n)) ||
+				  ((x.i.n >= 0) && (y.i.n < 0)  && (x.i.n <= INT64_MIN / y.i.n)) ||
+				  ((x.i.n < 0)  && (y.i.n >= 0) && (y.i.n <= INT64_MIN / x.i.n)) ||
+				  ((x.i.n < 0)  && (y.i.n < 0)  && (y.i.n >= INT64_MAX / x.i.n)))))
+				    {
+					x.i.n *= y.i.n ;
+					return x ;
+				    }
 #else
 				long long prod ;
 				if (! __builtin_smulll_overflow (x.i.n, y.i.n, &prod))
-#endif
 				    {
 					x.i.n = prod ;
 					return x ;
 				    }
+#endif
 			    }
 			float2 (&x, &y) ;
 			x.f *= y.f ;
@@ -945,7 +968,7 @@ void *channel (void)
 
 static int dimfunc (void)
 {
-	int d, n ;
+	unsigned int d, n ;
 	void *ptr ;
 	unsigned char type ;
 	if (nxt () == '(')
@@ -977,7 +1000,7 @@ static int dimfunc (void)
 		return d;
 	esi++ ;
 	n = expri () - 1 ;
-	if ((n < 0) || (n >= d))
+	if (n > (d - 1 + (d == 0)))
 		error (15, NULL) ; // 'Bad subscript'
 	return ILOAD(ptr + 1 + n * 4) - 1 ;
 }
@@ -1220,7 +1243,7 @@ VAR item (void)
 /************************************ MODE *************************************/
 
 		case TMODE:
-			v.i.n = modeno ;
+			v.i.n = getmodeno() ;
 			v.i.t = 0 ;
 			return v ;
 
@@ -2594,16 +2617,16 @@ int expra (void *ebp, int ecx, unsigned char type)
 				if (nxt () == '.') // dot product
 					break ;
 
-				if ((type != type2) || (ecx != arrlen(&ptr)))
+				if (((type < 128) != (type2 < 128)) || (ecx != arrlen(&ptr)))
 					error (6, NULL) ; // 'Type mismatch'
 				if (type < 128) // numeric array
 				    {
 					for (i = 0; i < ecx; i++)
 					    {
-						VAR v = loadn (ptr, type & ~BIT6) ;
+						VAR v = loadn (ptr, type2 & ~BIT6) ;
 						modify (v, ebp, type & ~BIT6, op) ;
 						ebp += type & TMASK ; // GCC extension
-						ptr += type & TMASK ; // GCC extension
+						ptr += type2 & TMASK ; // GCC extension
 					    }
 				    }
 				else // string array
@@ -2671,20 +2694,11 @@ int expra (void *ebp, int ecx, unsigned char type)
 
 			ebp = savebp ;
 			op = nxt () ;
-			switch (op)
+			if ((op == '+') || (op == '-') || (op == '*') || (op == '/') ||
+				(op == '^') || ((op >= TAND) && (op <= TOR)))
 			    {
-				// TODO enforce left-to-right priority
-				case TOR:
-				case TAND:
-				case TEOR:
-				case '+':
-				case '-':
-				case '*':
-				case '/':
-				case TDIV:
-				case TMOD:
-					esi++ ;
-					continue ;
+				esi++ ;
+				continue ;
 			    }
 			break ;
 		    }
@@ -2704,7 +2718,7 @@ int expra (void *ebp, int ecx, unsigned char type)
 			error (16, NULL) ; // 'Syntax error'
 		if (type3 == 0)
 			error (26, NULL) ; // 'No such variable'
-		if ((type != type2) || (type != type3) || (type3 & BIT7))
+		if ((type2 != type3) || (type3 & BIT7))
 			error (6, NULL) ; // 'Type mismatch'
 		if (rhs < (void *)2)
 			error (14, NULL) ; // 'Bad use of array'
@@ -2724,8 +2738,7 @@ int expra (void *ebp, int ecx, unsigned char type)
 		else
 		    {
 			rowsl = 1 ;
-			colsl = ILOAD(ptr + 1) ;
-			ptr += 5 ;
+			colsl = arrlen (&ptr) ;
 		    }
 
 		if (dimsr == 2)
@@ -2737,15 +2750,15 @@ int expra (void *ebp, int ecx, unsigned char type)
 		else
 		    {
 			colsr = 1 ;
-			rowsr = ILOAD(rhs + 1) ;
-			rhs += 5 ;
+			rowsr = arrlen (&rhs) ;
 		    }
 
 		if ((colsl != rowsr) || (ecx != (colsr * rowsl)))
 			error (6, NULL) ; // 'Type mismatch'
 
 		type &= ~BIT6 ;
-		size = type & TMASK ;
+		type2 &= ~BIT6 ;
+		size = type2 & TMASK ;
 		for (i = 0; i < rowsl; i++)
 		    {
 			void *oldrhs = rhs ;
@@ -2753,14 +2766,16 @@ int expra (void *ebp, int ecx, unsigned char type)
 			    {
 				void *oldptr = ptr ;
 				void *oldrhs = rhs ;
+				VAR v = {0} ;
 				for (k = 0; k < colsl; k++)
 				    {
-					modify (math (loadn (ptr,type), '*', loadn (rhs,type)), 
-						ebp, type, '+') ;
+					v = math( math (loadn (ptr,type2), '*', loadn (rhs,type2)), 
+						  '+', v) ;
 					ptr += size ;
 					rhs += size * colsr ;
 				    }
-				ebp += size ;
+				storen (v, ebp, type) ;
+				ebp += (type & 15) ;
 				rhs = oldrhs + size ;
 				ptr = oldptr ;
 			    }
