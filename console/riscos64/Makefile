@@ -12,6 +12,7 @@
 
 TARGET ?= bbcbasic
 
+# Version of the C library to use to build
 CLIB_VERSION = 0.20
 CLIB_URL = https://github.com/gerph/riscos64-simple-binaries/releases/download/v${CLIB_VERSION}/RISCOS64-CLib-${CLIB_VERSION}.zip
 
@@ -44,7 +45,6 @@ clib/libcrt.a: clib/clib-${CLIB_VERSION}.zip
 	cd clib && unzip -o clib-${CLIB_VERSION}.zip && touch libcrt.a
 
 
-CRT_OBJS = 	${CLIBDIR}/libcrt.a
 
 VPATH = ../../src ../../include
 
