@@ -1,12 +1,12 @@
 /*****************************************************************\
 *       32-bit or 64-bit BBC BASIC for SDL 2.0                    *
-*       (C) 2017-2025  R.T.Russell  http://www.rtrussell.co.uk/   *
+*       (C) 2017-2026  R.T.Russell  http://www.rtrussell.co.uk/   *
 *                                                                 *
 *       The name 'BBC BASIC' is the property of the British       *
 *       Broadcasting Corporation and used with their permission   *
 *                                                                 *
 *       bbcsdl.c Main program: Initialisation, Polling Loop       *
-*       Version 1.42a, 14-Jun-2025                                *
+*       Version 1.43c, 09-Jan-2026                                *
 \*****************************************************************/
 
 #include <stdlib.h>
@@ -658,13 +658,14 @@ for (i = 1; i < argc; i++)
 }
 
 window = SDL_CreateWindow("BBCSDL",  SDL_WINDOWPOS_CENTERED,  SDL_WINDOWPOS_CENTERED, 
-				SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL | 
+				SCREEN_WIDTH, SCREEN_HEIGHT, 
 #ifdef __IPHONEOS__
 				SDL_WINDOW_ALLOW_HIGHDPI |
 #endif
 #ifdef __ANDROID__
 				SDL_WINDOW_BORDERLESS |
 #endif
+				(getenv("SDL_RENDER_DRIVER") ? 0 : SDL_WINDOW_OPENGL) |
 				(fixedsize ? 0 : SDL_WINDOW_RESIZABLE) | 
 				(fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) | 
 				(borderless ? SDL_WINDOW_BORDERLESS : 0) | 
@@ -817,17 +818,6 @@ glTexParameteriBBC = SDL_GL_GetProcAddress ("glTexParameteri") ;
 glLogicOpBBC = SDL_GL_GetProcAddress("glLogicOp") ;
 glEnableBBC  = SDL_GL_GetProcAddress("glEnable") ;
 glDisableBBC = SDL_GL_GetProcAddress("glDisable") ;
-#ifndef __EMSCRIPTEN__
-if ((glTexParameteriBBC == NULL) || (glLogicOpBBC == NULL) || (glEnableBBC == NULL) || (glDisableBBC == NULL))
-{
-	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-				szVersion, "SDL_GL_GetProcAddress failed", NULL) ;
-	SDLNet_Quit() ;
-	TTF_Quit() ;
-	SDL_Quit() ;
-	return 10 ;
-}
-#endif
 
 #ifdef __WINDOWS__
 	wchar_t widepath[MAX_PATH] ;
@@ -1429,42 +1419,72 @@ static int maintick (void)
 
 			switch (c)
 			    {
+				case SDLK_KP_7 :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_HOME :
 				c = 130 ;
 				break ;
 
+				case SDLK_KP_1 :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_END :
 				c = 131 ;
 				break ;
 
+				case SDLK_KP_9 :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_PAGEUP :
 				c = 132 ;
 				break ;
 
+				case SDLK_KP_3 :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_PAGEDOWN :
 				c = 133 ;
  				break ;
 
+				case SDLK_KP_0 :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_INSERT :
 				c = 134 ;
 				break ;
 
+				case SDLK_KP_PERIOD :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_DELETE :
 				c = 135 ;
 				break ;
 
+				case SDLK_KP_4 :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_LEFT :
 				c = 136 ;
 				break ;
 
+				case SDLK_KP_6 :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_RIGHT :
 				c = 137 ;
 				break ;
 
+				case SDLK_KP_2 :
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_DOWN :
 				c = 138 ;
 				break ;
 
+				case SDLK_KP_8:
+				c = 0 ;
+				if (ev.key.keysym.mod & KMOD_NUM) break ;
 				case SDLK_UP :
 				c = 139 ;
 				break ;
