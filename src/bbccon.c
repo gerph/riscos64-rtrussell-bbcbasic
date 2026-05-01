@@ -460,6 +460,13 @@ void getcsr(int *px, int *py)
 #else
 void getcsr(int *px, int *py)
 {
+    int x;
+    int y;
+
+    if (px == NULL)
+        px = &x;
+    if (py == NULL)
+        py = &y;
     _swix(OS_Byte, _IN(0) | _OUTR(1,2), 135, px, py);
 }
 
