@@ -1371,22 +1371,218 @@ static FILE *lookup (void *chan)
 }
 #endif
 
+static int valid_rtr_basic (unsigned char *data, int len)
+{
+	int pos = 0 ;
+
+	while (pos < len)
+	    {
+		int line_len = data[pos] ;
+
+		if (line_len == 0)
+			return 1 ;
+		if ((line_len < 4) || ((pos + line_len) > len))
+			return 0 ;
+		if (data[pos + line_len - 1] != 0x0D)
+			return 0 ;
+		pos += line_len ;
+	    }
+	return 0 ;
+}
+
+static int bbc_extended_token (int prefix, int token)
+{
+	if (prefix == 0xC6)
+	    {
+		switch (token)
+		    {
+			case 0x8E: return 0xC6 ; /* SUM */
+		    }
+	    }
+	else if ((prefix == 0xC7) || (prefix == 0xC8))
+	    {
+		switch (token)
+		    {
+			case 0x8E: return 0xC8 ; /* CASE */
+			case 0x8F: return 0x01 ; /* CIRCLE */
+			case 0x90: return 0x03 ; /* FILL */
+			case 0x91: return 0x05 ; /* ORIGIN */
+			case 0x92: return 0xB0 ; /* POINT */
+			case 0x93: return 0x07 ; /* RECTANGLE */
+			case 0x94: return 0x08 ; /* SWAP */
+			case 0x95: return 0xC7 ; /* WHILE */
+			case 0x96: return 0x0B ; /* WAIT */
+			case 0x97: return 0x04 ; /* MOUSE */
+			case 0x98: return 0x06 ; /* QUIT */
+			case 0x99: return 0x09 ; /* SYS */
+			case 0x9C: return 0x0A ; /* TINT */
+			case 0x9D: return 0x02 ; /* ELLIPSE */
+			case 0x9F: return 0x0C ; /* INSTALL */
+		    }
+	    }
+	return token ;
+}
+
+static int convert_bbc_basic (unsigned char *src, int len, unsigned char *dst, int max)
+{
+	int in = 0 ;
+	int out = 0 ;
+
+	while (in < len)
+	    {
+		int line_start ;
+		int line_len ;
+		int body ;
+		int body_len ;
+		int quoted = 0 ;
+
+		if (src[in] != 0x0D)
+			return -1 ;
+		if (((in + 1) < len) && (src[in + 1] == 0xFF))
+		    {
+			if (out >= max)
+				return -1 ;
+			dst[out++] = 0 ;
+			return out ;
+		    }
+		if ((in + 4) > len)
+			return -1 ;
+
+		line_len = src[in + 3] ;
+		body = in + 4 ;
+		body_len = line_len - 3 ;
+		if ((line_len < 4) || ((in + line_len) >= len))
+			return -1 ;
+		while ((body_len > 1) && ((src[body] == ' ') || (src[body] == '\t')))
+		    {
+			body++ ;
+			body_len-- ;
+		    }
+
+		if ((out + body_len + 3) > max)
+			return -1 ;
+		line_start = out ;
+		dst[out++] = 0 ;
+		dst[out++] = src[in + 2] ;
+		dst[out++] = src[in + 1] ;
+
+		while (body_len-- > 0)
+		    {
+			int ch = src[body++] ;
+
+			if (ch == '"')
+				quoted = !quoted ;
+			else if (!quoted && ((ch == 0xF4) || (ch == 0xDC)))
+			    {
+				dst[out++] = ch ;
+				while (body_len-- > 0)
+					dst[out++] = src[body++] ;
+				break ;
+			    }
+			else if (!quoted && ((ch == 0xC6) || (ch == 0xC7) || (ch == 0xC8)) && (body_len > 0))
+			    {
+				ch = bbc_extended_token (ch, src[body++]) ;
+				body_len-- ;
+			    }
+			dst[out++] = ch ;
+		    }
+		if ((out - line_start) > 255)
+			return -1 ;
+		dst[line_start] = out - line_start ;
+		in += line_len ;
+	    }
+	return -1 ;
+}
+
+static int load_basic_file (char *name, void *addr, unsigned int max)
+{
+	FILE *file ;
+	unsigned char *buffer ;
+	long size ;
+	int n ;
+	int converted ;
+#ifdef __riscos
+	char typed_name[MAX_PATH + 5] ;
+	int name_len ;
+#endif
+
+	file = fopen (name, "rb") ;
+#ifdef __riscos
+	if ((file == NULL) && (strchr (name, '/') == NULL))
+	    {
+		name_len = strlen (name) ;
+		if (name_len < MAX_PATH)
+		    {
+			sprintf (typed_name, "%s/ffb", name) ;
+			file = fopen (typed_name, "rb") ;
+			if (file == NULL)
+			    {
+				sprintf (typed_name, "%s/bbc", name) ;
+				file = fopen (typed_name, "rb") ;
+			    }
+		    }
+	    }
+#endif
+	if (file == NULL)
+		return -1 ;
+	if (myfseek (file, 0, SEEK_END) != 0)
+	    {
+		fclose (file) ;
+		return -1 ;
+	    }
+	size = myftell (file) ;
+	if ((size <= 0) || ((unsigned long) size > max))
+	    {
+		fclose (file) ;
+		return -1 ;
+	    }
+	myfseek (file, 0, SEEK_SET) ;
+	buffer = malloc (size) ;
+	if (buffer == NULL)
+	    {
+		fclose (file) ;
+		return -1 ;
+	    }
+	n = fread (buffer, 1, size, file) ;
+	fclose (file) ;
+	if (n == 0)
+	    {
+		free (buffer) ;
+		error (189, "Couldn't read from file") ;
+	    }
+
+	if (valid_rtr_basic (buffer, n))
+		memcpy (addr, buffer, n) ;
+	else
+	    {
+		converted = convert_bbc_basic (buffer, n, addr, max) ;
+		if (converted < 0)
+			memcpy (addr, buffer, n) ;
+		else
+			n = converted ;
+	    }
+	free (buffer) ;
+	return n ;
+}
+
 // Load a file into memory:
 void osload (char *p, void *addr, unsigned int max)
 {
 	int n ;
 	FILE *file ;
 #ifdef __riscos
-    file = fopen (p, "rb") ;
+    n = load_basic_file (p, addr, max) ;
+    if (n < 0)
+        error (214, "File or path not found") ;
 #else
 	if (NULL == setup (path, p, ".bbc", '\0', NULL))
 		error (253, "Bad string") ;
 	file = fopen (path, "rb") ;
-#endif
 	if (file == NULL)
 		error (214, "File or path not found") ;
 	n = fread (addr, 1, max, file) ;
 	fclose (file) ;
+#endif
 	if (n == 0)
 		error (189, "Couldn't read from file") ;
 }
@@ -1591,7 +1787,7 @@ unsigned char osbget (void *chan, int *peof)
 				if (peof != NULL)
 					*peof = 1 ;
 				return 0 ;
-			    } 
+			    }
 		    }
 		return buffer[pfcb->p++] ;
 	    }
@@ -1991,7 +2187,7 @@ int i ;
 char *env, *p, *q ;
 int exitcode = 0 ;
 void *immediate = NULL ;
-FILE *ProgFile, *TestFile ;
+FILE *TestFile ;
 char szAutoRun[MAX_PATH + 1] ;
 
 #ifdef _WIN32
@@ -2170,15 +2366,13 @@ pthread_t hThread = NULL ;
 		progRAM = (void *)(((intptr_t) szCmdLine + strlen(szCmdLine) + 256) & -256) ;
 	    }
 
-	if (*szAutoRun && (NULL != (ProgFile = fopen (szAutoRun, "rb"))))
+	if (*szAutoRun && ((i = load_basic_file (szAutoRun, progRAM, userTOP - progRAM)) >= 0))
 	    {
 		unsigned char *esi = progRAM ;
-		fread (progRAM, 1, userTOP - progRAM, ProgFile) ;
-		fclose (ProgFile) ;
 		while (*esi)
 		    {
-			esi += (int) *esi ; 
-			if (*(esi-1) != 0x0D) 
+			esi += (int) *esi ;
+			if (*(esi-1) != 0x0D)
 			    {
 				fprintf(stderr, "%s isn't a valid internal-format (.bbc) file\r\n",
 						szAutoRun) ;
