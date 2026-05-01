@@ -146,6 +146,7 @@ unsigned int rnd (void) ;	// Return a pseudo-random number
 
 // Interpreter entry point:
 int basic (void *, void *, void *) ;
+char *lexan (char *, char *, unsigned char) ;
 
 // Forward references:
 unsigned char osbget (void*, int*) ;
@@ -1618,6 +1619,117 @@ static int convert_rtr_basic (unsigned char *src, int len, unsigned char *dst, i
 	return -1 ;
 }
 
+static int text_line_number (char *str, int *nread, unsigned short *plino)
+{
+	char *start = str ;
+	char *end ;
+	unsigned long lino ;
+
+	while ((*str == ' ') || (*str == '\t'))
+		str++ ;
+	if ((*str < '0') || (*str > '9'))
+		return 0 ;
+	lino = strtoul (str, &end, 10) ;
+	if ((end == str) || (lino > 65535))
+		return 0 ;
+	*nread = end - start ;
+	*plino = lino ;
+	return 1 ;
+}
+
+static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, int max)
+{
+	int in = 0 ;
+	int out = 0 ;
+	unsigned char old_liston ;
+
+	old_liston = liston ;
+	liston = 0x30 ;
+	while (in < len)
+	    {
+		char *p ;
+		char *tmp ;
+		int n ;
+		unsigned short lino ;
+
+		p = accs ;
+		while (in < len)
+		    {
+			unsigned char ch = src[in++] ;
+			if (ch == 0x0A)
+				break ;
+			if (ch != 0x0D)
+			    {
+				if ((p - accs) >= (ACCSLEN - 2))
+				    {
+					liston = old_liston ;
+					return -1 ;
+				    }
+				if ((ch < 0x09) || ((ch > 0x0D) && (ch < 0x20)))
+				    {
+					liston = old_liston ;
+					return -1 ;
+				    }
+				*p++ = ch ;
+			    }
+		    }
+		if (p == accs)
+			continue ;
+		*p++ = 0x0D ;
+		*p = 0 ;
+		tmp = accs ;
+		n = 0 ;
+		if (!text_line_number (tmp, &n, &lino))
+		    {
+			liston = old_liston ;
+			return -1 ;
+		    }
+		tmp += n ;
+		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
+		if ((out + 255) > max)
+		    {
+			liston = old_liston ;
+			return -1 ;
+		    }
+		n = lexan (tmp, (char *) dst + out + 3, 1) - ((char *) dst + out) ;
+		if (n > 255)
+		    {
+			liston = old_liston ;
+			return -1 ;
+		    }
+		dst[out] = n ;
+		dst[out + 1] = lino & 0xFF ;
+		dst[out + 2] = lino >> 8 ;
+		out += n ;
+	    }
+	if (out >= max)
+	    {
+		liston = old_liston ;
+		return -1 ;
+	    }
+	dst[out++] = 0 ;
+	liston = old_liston ;
+	return out ;
+}
+
+static int file_type (char *name)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+	_kernel_swi_regs regs ;
+
+	regs.r[0] = 17 ;
+	regs.r[1] = (intptr_t) name ;
+	err = _kernel_swi (OS_File, &regs, &regs) ;
+	if ((err != NULL) || (regs.r[0] == 0))
+		return -1 ;
+	if ((regs.r[2] & 0xFFF00000) == 0xFFF00000)
+		return (regs.r[2] >> 8) & 0xFFF ;
+#endif
+	(void) name ;
+	return -1 ;
+}
+
 static int load_basic_file (char *name, void *addr, unsigned int max)
 {
 	FILE *file ;
@@ -1625,6 +1737,8 @@ static int load_basic_file (char *name, void *addr, unsigned int max)
 	long size ;
 	int n ;
 	int converted ;
+	int type ;
+	char *actual_name = name ;
 #ifdef __riscos
 	char typed_name[MAX_PATH + 5] ;
 	int name_len ;
@@ -1641,9 +1755,21 @@ static int load_basic_file (char *name, void *addr, unsigned int max)
 			file = fopen (typed_name, "rb") ;
 			if (file == NULL)
 			    {
+				sprintf (typed_name, "%s/fd1", name) ;
+				file = fopen (typed_name, "rb") ;
+			    }
+			if (file == NULL)
+			    {
+				sprintf (typed_name, "%s/1c7", name) ;
+				file = fopen (typed_name, "rb") ;
+			    }
+			if (file == NULL)
+			    {
 				sprintf (typed_name, "%s/bbc", name) ;
 				file = fopen (typed_name, "rb") ;
 			    }
+			if (file != NULL)
+				actual_name = typed_name ;
 		    }
 	    }
 #endif
@@ -1675,15 +1801,45 @@ static int load_basic_file (char *name, void *addr, unsigned int max)
 		error (189, "Couldn't read from file") ;
 	    }
 
-	if (valid_rtr_basic (buffer, n))
-		memcpy (addr, buffer, n) ;
+	type = file_type (actual_name) ;
+	converted = -1 ;
+	if (type == 0x1C7)
+	    {
+		if (valid_rtr_basic (buffer, n))
+			memcpy (addr, buffer, n) ;
+		else
+			n = -1 ;
+	    }
+	else if (type == 0xFD1)
+	    {
+		converted = convert_text_basic (buffer, n, addr, max) ;
+		n = converted ;
+	    }
+	else if (type == 0xFFB)
+	    {
+		converted = convert_bbc_basic (buffer, n, addr, max) ;
+		if (converted >= 0)
+			n = converted ;
+		else if (valid_rtr_basic (buffer, n))
+			memcpy (addr, buffer, n) ;
+		else
+			n = -1 ;
+	    }
 	else
 	    {
 		converted = convert_bbc_basic (buffer, n, addr, max) ;
-		if (converted < 0)
-			memcpy (addr, buffer, n) ;
-		else
+		if (converted >= 0)
 			n = converted ;
+		else
+		    {
+			converted = convert_text_basic (buffer, n, addr, max) ;
+			if (converted >= 0)
+				n = converted ;
+			else if (valid_rtr_basic (buffer, n))
+				memcpy (addr, buffer, n) ;
+			else
+				n = -1 ;
+		    }
 	    }
 	free (buffer) ;
 	return n ;
@@ -1751,7 +1907,7 @@ void ossave (char *p, void *addr, unsigned int len, int format)
 	if (n < write_len)
 		error (189, "Couldn't write to file") ;
 #ifdef __riscos
-    _swix(OS_File, _INR(0, 2), 18, p, 0xFFB); /* Set type as BASIC */
+    _swix(OS_File, _INR(0, 2), 18, p, format == BASIC_SAVE_RTR ? 0x1C7 : 0xFFB);
 #endif
 }
 
@@ -2385,6 +2541,7 @@ int exitcode = 0 ;
 void *immediate = NULL ;
 FILE *TestFile ;
 char szAutoRun[MAX_PATH + 1] ;
+int option ;
 
 #ifdef _WIN32
 int orig_stdout = -1 ;
@@ -2483,6 +2640,9 @@ pthread_t hThread = NULL ;
 	szUserDir = szTempDir - 0x100 ;
 	szLibrary = szUserDir - 0x100 ;
 	szLoadDir = szLibrary - 0x100 ;
+	accs = (char*) userRAM ;
+	buff = (char*) accs + ACCSLEN ;
+	path = (char*) buff + 0x100 ;
 
 // Get path to executable:
 
@@ -2510,10 +2670,25 @@ pthread_t hThread = NULL ;
 
 	for (i = 1; i < argc; i++)
 	    {
-		if (NULL != strstr(argv[i], "-quit")) immediate = (void *) -1 ;
-		if (NULL != strstr(argv[i], "-load")) immediate = (void *) 1 ;
-		if (NULL != strstr(argv[i], "-help")) immediate = (void *) 2 ;
-		if (immediate)
+		option = 0 ;
+		if (0 == strcmp (argv[i], "-quit"))
+		    {
+			immediate = (void *) -1 ;
+			option = 1 ;
+		    }
+		else if (0 == strcmp (argv[i], "-load"))
+		    {
+			immediate = (void *) 1 ;
+			option = 1 ;
+		    }
+		else if (0 == strcmp (argv[i], "-chain"))
+			option = 1 ;
+		else if (0 == strcmp (argv[i], "-help"))
+		    {
+			immediate = (void *) 2 ;
+			option = 1 ;
+		    }
+		if (option)
 		    {
 			argc-- ;
 			while (i++ < argc)
@@ -2528,6 +2703,7 @@ pthread_t hThread = NULL ;
 		printf ("The command syntax is: bbcbasic [option] [bbcfile]\n\n") ;
 		printf ("where <option> is one of:\n") ;
 		printf ("  -help  Display this message.\n") ;
+		printf ("  -chain Run BASIC program <bbcfile> and stay in the interpreter.\n") ;
 		printf ("  -load  Load BASIC program <bbcfile> but don't run it.\n") ;
 		printf ("  -quit  Run BASIC program <bbcfile> and quit when it ends.\n") ;
 		printf ("otherwise run <bbcfile> (if any) and stay in the interpreter.\n") ;
