@@ -1755,6 +1755,57 @@ void ossave (char *p, void *addr, unsigned int len, int format)
 #endif
 }
 
+int osreadfile (char *p, unsigned char **pdata)
+{
+	FILE *file ;
+	unsigned char *data ;
+	long size ;
+	int n ;
+
+#ifdef __riscos
+	file = fopen (p, "rb") ;
+#else
+	if (NULL == setup (path, p, ".bbc", '\0', NULL))
+		error (253, "Bad string") ;
+	file = fopen (path, "rb") ;
+#endif
+	if (file == NULL)
+		return -1 ;
+	myfseek (file, 0, SEEK_END) ;
+	size = myftell (file) ;
+	myfseek (file, 0, SEEK_SET) ;
+	if (size < 0)
+	    {
+		fclose (file) ;
+		return -1 ;
+	    }
+	data = malloc (size + 1) ;
+	if (data == NULL)
+	    {
+		fclose (file) ;
+		error (0, NULL) ;
+	    }
+	n = fread (data, 1, size, file) ;
+	fclose (file) ;
+	if (n < size)
+	    {
+		free (data) ;
+		error (189, "Couldn't read from file") ;
+	    }
+	*pdata = data ;
+	return n ;
+}
+
+void osfiletype (char *p, int filetype)
+{
+#ifdef __riscos
+	_swix(OS_File, _INR(0, 2), 18, p, filetype);
+#else
+	(void) p ;
+	(void) filetype ;
+#endif
+}
+
 // Open a file:
 void *osopen (int type, char *p)
 {

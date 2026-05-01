@@ -25,9 +25,12 @@ void faterr (const char *) ;	// Report a 'fatal' error message
 void trap (void) ;		// Test for ESCape
 void osload (char*, void*, unsigned int) ; // Load a file to memory
 void ossave (char*, void*, unsigned int, int) ; // Save a file from memory
-int osopen (int, char *) ;	// Open a file
-unsigned char osbget (int, int*) ; // Read a byte from a file
-void osshut (int) ;		// Close file(s)
+void *osopen (int, char *) ;	// Open a file
+unsigned char osbget (void *, int*) ; // Read a byte from a file
+void osbput (void *, unsigned char) ; // Write a byte to a file
+void osshut (void *) ;		// Close file(s)
+int osreadfile (char *, unsigned char **) ; // Read a file into memory
+void osfiletype (char *, int) ;	// Set the file type
 
 // Routines in bbccli:
 void oscli (char*) ;            // Command Line Interface
@@ -57,6 +60,8 @@ heapptr *esp ;			// Stack pointer
 void *libtop ;			// For stack overflow checking
 #endif
 
+static void *outchan = NULL ;
+
 // List of immediate mode commands:
 
 static const signed char comnds[] = {
@@ -68,6 +73,8 @@ static const signed char comnds[] = {
 	0x1D,'N','E','W',
 	0x1E,'R','E','N','U','M','B','E','R',
 	0x1F,'S','A','V','E',
+	0x16,'T','E','X','T','L','O','A','D',
+	0x17,'T','E','X','T','S','A','V','E',
 	0x00,0x7F } ;
 	
 // List of token values and associated keywords.
@@ -426,13 +433,16 @@ static unsigned short extract_lineno(char *str, int *nread, unsigned short defli
 {
     unsigned long llino = deflino;
 #ifdef __riscos
+    char *start = str;
+    while ((*str == ' ') || (*str == '\t'))
+        str++;
     if (*str >= '0' && *str <= '9') /* avoid unimplemented scanf */
     {
         char *end = str;
         llino = strtol(str, &end, 10);
         if (end == str)
             llino = deflino;
-        *nread = end - str;
+        *nread = end - start;
     }
     return llino;
 #else
@@ -508,10 +518,20 @@ char *lexan (char *esi, char *ebx, unsigned char mode)
 
 void crlf (void) ;
 
+static void outbyte (unsigned char al)
+{
+	if (outchan != NULL)
+		osbput (outchan, al) ;
+	else
+		oswrch (al) ;
+}
+
 // Output a character:
 void outchr (unsigned char al)
 {
-	oswrch (al) ;
+	outbyte (al) ;
+	if (outchan != NULL)
+		return ;
 	if (al == 0x0D) vcount = 0 ;
 	if (al >= ' ')
 	    {
@@ -566,7 +586,7 @@ void listline (signed char *p, int *pindent)
 	p += 2 ;
 
 	if (lstopt & 1)
-		oswrch (32) ;
+		outchr (32) ;
 
 	if (strchr ("\355\375\316\315\213\311\314", *p))
 		*pindent -= 1 ;
@@ -574,7 +594,7 @@ void listline (signed char *p, int *pindent)
 		*pindent -= 2 ;
 	if (lstopt & 2)
 		for (n = 0; n < *pindent * 2; n++)
-			oswrch (' ') ;
+			outchr (' ') ;
 	if (strchr ("\343\365\307\213\311\314", *p))
 		*pindent += 1 ;
 	if (*p == TCASE)
@@ -586,7 +606,7 @@ void listline (signed char *p, int *pindent)
 		if ((al == '"') && !(mode & 0x60))
 			mode ^= BIT7 ;
 		if (mode & (BIT5 | BIT6 | BIT7))
-			oswrch (al) ;
+			outchr (al) ;
 		else
 		    {
 			if ((al == '*') && (mode & BIT0))
@@ -1585,13 +1605,10 @@ static int save_format_name (char *name, int len)
 	return 0 ;
 }
 
-static int parse_save_command (char *command, char *name)
+static char *parse_filename (char *command, char *name)
 {
 	char *p ;
 	char *q ;
-	char *fmt ;
-	int len ;
-	int format ;
 
 	p = command ;
 	while ((*p == ' ') || (*p == '\t')) p++ ;
@@ -1623,7 +1640,26 @@ static int parse_save_command (char *command, char *name)
 	*q = 0 ;
 	if (q == name)
 		error (253, "Bad string") ;
+	return p ;
+}
 
+static void parse_text_command (char *command, char *name)
+{
+	char *p = parse_filename (command, name) ;
+
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	if ((*p != 0) && (*p != 0x0D))
+		error (16, NULL) ;
+}
+
+static int parse_save_command (char *command, char *name)
+{
+	char *p ;
+	char *fmt ;
+	int len ;
+	int format ;
+
+	p = parse_filename (command, name) ;
 	format = 0 ;
 	while ((*p == ' ') || (*p == '\t')) p++ ;
 	if (*p == ',')
@@ -1649,6 +1685,100 @@ static int parse_save_command (char *command, char *name)
 	if ((*p != 0) && (*p != 0x0D))
 		error (16, NULL) ;
 	return format ;
+}
+
+static void load_text_buffer (unsigned char *data, int len, signed char *limit)
+{
+	signed char *dest ;
+	int pos ;
+	unsigned short lino ;
+
+	memset (vpage + zero, 0, 256) ;
+	dest = vpage + (signed char *) zero ;
+	pos = 0 ;
+	lino = 0 ;
+	while (pos < len)
+	    {
+		char *p ;
+		char *tmp ;
+		int n ;
+
+		p = accs ;
+		while (pos < len)
+		    {
+			unsigned char ch = data[pos++] ;
+			if (ch == 0x0A)
+				break ;
+			if (ch != 0x0D)
+			    {
+				if ((p - accs) >= (ACCSLEN - 2))
+					error (19, NULL) ;
+				*p++ = ch ;
+			    }
+		    }
+		*p++ = 0x0D ;
+		*p = 0 ;
+
+		tmp = accs ;
+		lino++ ;
+		n = 0 ;
+		lino = extract_lineno (tmp, &n, lino) ;
+		tmp += n ;
+		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
+		n = lexan (tmp, (char *) dest + 3, 1) - (char *) dest ;
+		if (n > 255)
+			error (19, NULL) ;
+		if ((dest + n) >= limit)
+			error (0, NULL) ;
+		*dest = n ;
+		SSTORE(dest + 1, lino) ;
+		dest += n ;
+	    }
+	*dest = 0 ;
+	clear () ;
+}
+
+static void load_text_file (char *name, signed char *limit)
+{
+	unsigned char *data ;
+	int len ;
+
+	data = NULL ;
+	len = osreadfile (name, &data) ;
+	if (len < 0)
+		error (214, "File or path not found") ;
+	load_text_buffer (data, len, limit) ;
+	free (data) ;
+}
+
+static void save_text_file (char *name)
+{
+	signed char *line ;
+	void *file ;
+	void *oldout ;
+	int oldwidth ;
+	int indent ;
+
+	file = osopen (1, name) ;
+	if (file == NULL)
+		error (214, "Couldn't create file") ;
+	oldout = outchan ;
+	oldwidth = vwidth ;
+	outchan = file ;
+	vwidth = 0 ;
+	line = vpage + (signed char *) zero ;
+	indent = 0 ;
+	while (*line)
+	    {
+		trap () ;
+		listline (line + 1, &indent) ;
+		outchr (0x0A) ;
+		line += *(unsigned char *)line ;
+	    }
+	outchan = oldout ;
+	vwidth = oldwidth ;
+	osshut (file) ;
+	osfiletype (name, 0xFD1) ;
 }
 
 // Main interpreter entry point:
@@ -1877,32 +2007,7 @@ int basic (void *ecx, void *edx, void *prompt)
 						if (*(esi-1) != 0x0D) break ;
 					    }
 					if (*(esi-1) != 0x0D)
-					    {
-						int eof = 0 ;
-						int file = osopen (0, tmp) ;
-						esi = vpage + (signed char *) zero ;
-						lino = 0 ;
-						while (1)
-						    {
-							tmp = accs ; n = ACCSLEN-1 ;
-							do *tmp = osbget (file, &eof) ;
-							while (!eof && --n && (*tmp++ != 0x0A)) ;
-							if (eof || (n <= 0)) break ;
-							*(tmp - 1) = 0x0D ; *tmp = 0 ;
-							tmp = accs ; lino++ ; n = 0 ;
-                            lino = extract_lineno(tmp, &n, lino);
-							tmp += n ;
-							while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
-							n = lexan (tmp, (char *) esi + 3, 1)
-								- (char *) esi ;
-							if (n > 255) break ;
-							*esi = n ;
-							SSTORE(esi + 1, lino) ;
-							esi += n ;
-						    }
-						osshut (file) ;
-						*esi = 0 ;
-					    }
+						load_text_file (tmp, (signed char *)esp - STACK_NEEDED) ;
 					clear () ;
 					break ;
 
@@ -1947,6 +2052,17 @@ int basic (void *ecx, void *edx, void *prompt)
 						(signed char *) (vpage + zero) + 3, format) ;
 					break ;
 				    }
+
+				case 0x16: // TEXTLOAD
+					parse_text_command (tmp, buff) ;
+					load_text_file (buff, (signed char *)esp - STACK_NEEDED) ;
+					break ;
+
+				case 0x17: // TEXTSAVE
+					parse_text_command (tmp, buff) ;
+					clear () ;
+					save_text_file (buff) ;
+					break ;
 
 				default:
 					prompt = NULL ;

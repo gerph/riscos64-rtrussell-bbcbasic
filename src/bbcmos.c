@@ -2158,6 +2158,47 @@ void ossave (char *p, void *addr, unsigned int len, int format)
 		error (189, SDL_GetError ()) ;
 }
 
+int osreadfile (char *p, unsigned char **pdata)
+{
+	SDL_RWops *file ;
+	unsigned char *data ;
+	Sint64 size ;
+	size_t n ;
+
+	if (NULL == setup (path, p, ".bbc", '\0', NULL))
+		error (253, "Bad string") ;
+	file = SDL_RWFromFile (path, "rb") ;
+	if (file == NULL)
+		return -1 ;
+	size = SDL_RWsize (file) ;
+	if (size < 0)
+	    {
+		SDL_RWclose (file) ;
+		return -1 ;
+	    }
+	data = malloc (size + 1) ;
+	if (data == NULL)
+	    {
+		SDL_RWclose (file) ;
+		error (0, NULL) ;
+	    }
+	n = SDL_RWread (file, data, 1, size) ;
+	SDL_RWclose (file) ;
+	if (n < size)
+	    {
+		free (data) ;
+		error (189, SDL_GetError ()) ;
+	    }
+	*pdata = data ;
+	return n ;
+}
+
+void osfiletype (char *p, int filetype)
+{
+	(void) p ;
+	(void) filetype ;
+}
+
 // Open a file:
 void *osopen (int type, char *p)
 {
