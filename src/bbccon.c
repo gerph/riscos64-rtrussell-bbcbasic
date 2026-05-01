@@ -1946,7 +1946,7 @@ unsigned char osbget (void *chan, int *peof)
 void osbput (void *chan, unsigned char byte)
 {
 #ifdef __riscos
-    _swix(OS_BGet, _INR(0, 1), chan, byte);
+    _swix(OS_BPut, _INR(0, 1), byte, chan);
 #else
 	if (chan <= (void *) MAX_PORTS)
 	    {
