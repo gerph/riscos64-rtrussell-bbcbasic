@@ -48,7 +48,7 @@ void *dlsym (void *, const char *) ;
 void sortup(void){} ;
 void sortdn(void){} ;
 #endif
-#endif 
+#endif
 
 // Delared in bbmain.c:
 void error (int, const char *) ;
@@ -1190,7 +1190,7 @@ heapptr xtrap (void)
 			return getevt () ;
 		if ((flags & PAUSE) && (curlin < breakhi) && (curlin >= breakpt))
 		    {
-			flags |= SSTEP ; 
+			flags |= SSTEP ;
 			while (flags & SSTEP)
 			    {
 				SDL_Delay (1) ;
@@ -1351,7 +1351,7 @@ void oswrch (unsigned char vdu)
 //          a  | (edx)
 //  vduq->  n  v
 
-	pushev (*(int*)(pqueue + 8) & 0xFFFF, (void *)(intptr_t)*(int*)(pqueue + 4), 
+	pushev (*(int*)(pqueue + 8) & 0xFFFF, (void *)(intptr_t)*(int*)(pqueue + 4),
 					      (void *)(intptr_t)*(int*)pqueue) ;
 	if ((vduq[9] == 23) && (vduq[0] == 22))
 		getcsr(NULL, NULL) ; // thread sync after possible UTF8 change
@@ -1497,7 +1497,7 @@ void osline (char *buffer)
 									break ;
 								case 3:	cc -= chary << 16 ;
 							    }
-						    } 
+						    }
 					    }
 					if (key >= 32)
 					    {
@@ -1652,7 +1652,7 @@ void *sysadr (char *name)
 	if (useGPA)
 		addr = SDL_GL_GetProcAddress (name) ;
 	if (addr != NULL)
-		return addr ; 
+		return addr ;
 	return dlsym (RTLD_DEFAULT, name) ;
 }
 
@@ -1717,7 +1717,7 @@ int oscall (int addr)
 
 		case 0xFFF7: // OSCLI
 			oscli (xy) ;
-			return 0 ; 
+			return 0 ;
 
 		default:
 			error (8, NULL) ; // 'Address out of range'
@@ -2021,9 +2021,9 @@ static void tone (short **pbuffer)
 	temps[7] = temps[3] ;
 #if defined __EMSCRIPTEN__
 	short smixp[8] = { (smix[0] * temps[0]) >> 16, (smix[1] * temps[1]) >> 16,
-			   (smix[2] * temps[2]) >> 16, (smix[3] * temps[3]) >> 16, 
-			   (smix[4] * temps[4]) >> 16, (smix[5] * temps[5]) >> 16, 
-			   (smix[6] * temps[6]) >> 16, (smix[7] * temps[7]) >> 16 } ; 
+			   (smix[2] * temps[2]) >> 16, (smix[3] * temps[3]) >> 16,
+			   (smix[4] * temps[4]) >> 16, (smix[5] * temps[5]) >> 16,
+			   (smix[6] * temps[6]) >> 16, (smix[7] * temps[7]) >> 16 } ;
 #elif defined __arm__ || defined __aarch64__
 	int16x8_t smixp = vqdmulhq_s16 (vld1q_s16 ((int16_t*)smix),
 					   vld1q_s16 ((int16_t*)temps)) ;
@@ -2045,7 +2045,7 @@ static void tone (short **pbuffer)
 		tempi[2] = (sacc[2] >> 19) + wavep[2] ; tempi[3] = (sacc[3] >> 19) + wavep[3] ;
 #elif defined __arm__ || defined __aarch64__
 		saccp = vaddq_u32 (saccp, inctp) ; // DDS accumulator
-		vst1q_u32 ((uint32_t*) tempi, vorrq_u32 (vshrq_n_u32 (saccp, 19), (uint32x4_t)wavep)) ; 
+		vst1q_u32 ((uint32_t*) tempi, vorrq_u32 (vshrq_n_u32 (saccp, 19), (uint32x4_t)wavep)) ;
 #else
 		saccp = _mm_add_epi32 (saccp, inctp) ; // DDS accumulator
 		_mm_store_si128 ((__m128i*) tempi, _mm_or_si128 (_mm_srli_epi32 (saccp, 19), wavep)) ;
@@ -2067,10 +2067,10 @@ static void tone (short **pbuffer)
  		temps[7] = temps[3] ;
 
 #if defined __EMSCRIPTEN__
-		temps[0] = (temps[0] * smixp[0]) >> 16 ; temps[1] = (temps[1] * smixp[1]) >> 16 ; 
-		temps[2] = (temps[2] * smixp[2]) >> 16 ; temps[3] = (temps[3] * smixp[3]) >> 16 ; 
-		temps[4] = (temps[4] * smixp[4]) >> 16 ; temps[5] = (temps[5] * smixp[5]) >> 16 ; 
-		temps[6] = (temps[6] * smixp[6]) >> 16 ; temps[7] = (temps[7] * smixp[7]) >> 16 ; 
+		temps[0] = (temps[0] * smixp[0]) >> 16 ; temps[1] = (temps[1] * smixp[1]) >> 16 ;
+		temps[2] = (temps[2] * smixp[2]) >> 16 ; temps[3] = (temps[3] * smixp[3]) >> 16 ;
+		temps[4] = (temps[4] * smixp[4]) >> 16 ; temps[5] = (temps[5] * smixp[5]) >> 16 ;
+		temps[6] = (temps[6] * smixp[6]) >> 16 ; temps[7] = (temps[7] * smixp[7]) >> 16 ;
 		*buffer++ = ((int)temps[0] + (int)temps[1] + (int)temps[2] + (int)temps[3]) << 1 ; // left
 		*buffer++ = ((int)temps[4] + (int)temps[5] + (int)temps[6] + (int)temps[7]) << 1 ; // right
 #elif defined __arm__ || defined __aarch64__
@@ -2290,7 +2290,7 @@ unsigned char osbget (void *chan, int *peof)
 				if (peof != NULL)
 					*peof = 1 ;
 				return 0 ;
-			    } 
+			    }
 		    }
 		return buffer[pfcb->p++] ;
 	    }

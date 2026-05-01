@@ -71,7 +71,7 @@
 #define ESCDIS          0x40
 #define ALERT           0x20
 #define FLASH           0x10
-#define PHASE           0x08    
+#define PHASE           0x08
 #define PAUSE           0x04
 #define SSTEP           0x02
 #define KILL            0x01
@@ -168,7 +168,7 @@ extern void* filbuf[] ;
 extern FCB fcbtab[MAX_FILES] ;  // Table of FCBs
 extern unsigned char *keyptr ;	// Pointer to *KEY string
 extern char* usrchr ;		// User-defined characters (indirect)
-extern char* keybdq ;		// Keyboard queue (indirect) 
+extern char* keybdq ;		// Keyboard queue (indirect)
 extern int* eventq ;		// Event queue (indirect)
 extern unsigned char vduq[] ;	// VDU queue (different from asm version)
 extern unsigned char queue ;	// VDU queue status

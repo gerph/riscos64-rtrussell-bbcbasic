@@ -19,8 +19,8 @@
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-#define OC ((unsigned int) stavar[15] + (void *)((long long) stavar[13] << 32)) 
-#define PC ((unsigned int) stavar[16] + (void *)((long long) stavar[17] << 32)) 
+#define OC ((unsigned int) stavar[15] + (void *)((long long) stavar[13] << 32))
+#define PC ((unsigned int) stavar[16] + (void *)((long long) stavar[17] << 32))
 #else
 #define OC (void *) stavar[15]
 #define PC (void *) stavar[16]
@@ -97,7 +97,7 @@ static char *suffices[] = { "bt", "b", "d", "h", "sb", "sh", "t" } ;
 static char *stackops[] = { "da", "ia", "db", "ib", "fa", "fd", "ea", "ed" } ;
 
 static char *registers[] = {
-		"lr", "pc", "r0", "r10", "r11", "r12", "r13", "r14", "r15", "r1", 
+		"lr", "pc", "r0", "r10", "r11", "r12", "r13", "r14", "r15", "r1",
 		"r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "sp" } ;
 
 static unsigned char regno[] = {
@@ -110,7 +110,7 @@ static char *oslist[] = {
 		"osshut", "osbget", "osbput", "getptr", "setptr", "getext" } ;
 
 static void *osfunc[] = {
-		osrdch, oswrch, oskey, osline, oscli, osopen, osbyte, osword, 
+		osrdch, oswrch, oskey, osline, oscli, osopen, osbyte, osword,
 		osshut, osbget, osbput, getptr, setptr, getext } ;
 
 static int lookup (char **arr, int num)
@@ -153,13 +153,13 @@ static unsigned char shift (void)
 	return i % 5 ;
 }
 
-static unsigned char stackop (int mnemonic) 
+static unsigned char stackop (int mnemonic)
 {
 	int i = lookup (stackops, sizeof(stackops) / sizeof(stackops[0])) ;
 	if (i < 0)
 		error (16, NULL) ; // 'Syntax error'
 	if ((mnemonic == STM) && (i >= 4))
-		i ^= 3 ; // invert 
+		i ^= 3 ; // invert
 	return i & 3 ;
 }
 
@@ -171,7 +171,7 @@ static unsigned char shiftcount (void)
 	return n ;
 }
 
-static int immrot (unsigned int n) 
+static int immrot (unsigned int n)
 {
 	int rotate = 0 ;
 	while (n > 255)
@@ -188,7 +188,7 @@ static int immrot (unsigned int n)
 	return n | (rotate << 8) ;
 }
 
-static int reglist (void) 
+static int reglist (void)
 {
 	int temp = 0 ;
 	if (nxt () != '{')
@@ -265,14 +265,14 @@ static int offset (unsigned char *pimm, unsigned char *pplus)
 
 static void tabit (int x)
 {
-	if (vcount == x) 
+	if (vcount == x)
 		return ;
 	if (vcount > x)
 		crlf () ;
 	spaces (x - vcount) ;
 }
 
-static void poke (void *p, int n) 
+static void poke (void *p, int n)
 {
 	char *d ;
 	if (liston & BIT6)
@@ -324,7 +324,7 @@ void assemble (void)
 		al = nxt () ;
 		esi++ ;
 
-		switch (al) 
+		switch (al)
 		    {
 			case 0:
 				esi-- ;
@@ -373,7 +373,7 @@ void assemble (void)
 							p += 4 ;
 							oldpc += 4 ;
 						    }
-						else 
+						else
 							n = 0 ;
 
 						text (accs) ;
@@ -389,7 +389,7 @@ void assemble (void)
 							while (*oldesi == ' ') oldesi++ ;
 						    }
 						tabit (30) ;
-						while ((*oldesi != ':') && (*oldesi != 0x0D)) 
+						while ((*oldesi != ':') && (*oldesi != 0x0D))
 							token (*oldesi++) ;
 						crlf () ;
 					    }
@@ -398,7 +398,7 @@ void assemble (void)
 				nxt () ;
 #ifdef __arm__
 				if ((liston & BIT6) == 0)
-					__builtin___clear_cache (oldpc, PC) ; 
+					__builtin___clear_cache (oldpc, PC) ;
 #endif
 				oldpc = PC ;
 				oldesi = esi ;
@@ -436,12 +436,12 @@ void assemble (void)
 				esi-- ;
 				mnemonic = lookup (mnemonics, sizeof(mnemonics)/sizeof(mnemonics[0])) ;
 
-				condition = lookup (conditions, 
+				condition = lookup (conditions,
 						    sizeof(conditions) / sizeof(conditions[0])) ;
 
 				if ((condition == -1) && (mnemonic == BL))
 				    {
-					condition = lookup (collisions, 
+					condition = lookup (collisions,
 							sizeof (collisions) / sizeof(collisions[0])) ;
 					if (condition >= 0)
 					    {
@@ -487,7 +487,7 @@ void assemble (void)
 						poke (&n, 1) ;
 						continue ; // n.b. not break
 						}
- 
+
 					case DCW:
 					case EQUW:
 						{
@@ -558,7 +558,7 @@ void assemble (void)
 							instruction |= 0x024F0000 | immrot (-offpc) ;
 						break ;
 						}						
- 
+
 					case ADC:
 					case ADD:
 					case AND:
@@ -760,7 +760,7 @@ void assemble (void)
 
 							if ((mnemonic == LDR) && (suffix != 2))
 								instruction |= 0x100000 ; // L bit
-							if ((suffix == 2) || (suffix == 4) || 
+							if ((suffix == 2) || (suffix == 4) ||
 									(suffix == 5))
 								instruction |= 0x40 ; // S bit
 							if ((suffix == 3) || (suffix == 5) ||
@@ -783,7 +783,7 @@ void assemble (void)
 
 						    }
 
-						if (add) 
+						if (add)
 							instruction |= 0x800000 ; // U bit
 
 						if ((instruction & 0x1000000) == 0) // Test P bit
@@ -839,7 +839,7 @@ void assemble (void)
 								error (16, NULL) ; // 'Syntax error'
 							instruction = 0xE1A00000 ;
 							while (stavar[16] & (n - 1))
-								poke (&instruction, 4) ; 
+								poke (&instruction, 4) ;
 						    }
 						continue ;
 

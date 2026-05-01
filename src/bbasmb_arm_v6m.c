@@ -21,8 +21,8 @@
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-#define OC ((unsigned int) stavar[15] + (void *)((long long) stavar[13] << 32)) 
-#define PC ((unsigned int) stavar[16] + (void *)((long long) stavar[17] << 32)) 
+#define OC ((unsigned int) stavar[15] + (void *)((long long) stavar[13] << 32))
+#define PC ((unsigned int) stavar[16] + (void *)((long long) stavar[17] << 32))
 #else
 #define OC (void *) stavar[15]
 #define PC (void *) stavar[16]
@@ -158,7 +158,7 @@ static const unsigned char ccodes[] = {
     0b1101, 0b0011, 0b1001, 0b1011, 0b0100, 0b0001, 0b0101, 0b0111, 0b0110 };
 
 static const char *registers[] = {
-    "lr", "pc", "r0", "r10", "r11", "r12", "r13", "r14", "r15", "r1", 
+    "lr", "pc", "r0", "r10", "r11", "r12", "r13", "r14", "r15", "r1",
     "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "sp" };
 
 static const unsigned char regno[] = {
@@ -172,7 +172,7 @@ static const char *oslist[] = {
     "osshut", "osbget", "osbput", "getptr", "setptr", "getext" };
 
 static const void *osfunc[] = {
-    osrdch, oswrch, oskey, osline, oscli, osopen, osbyte, osword, 
+    osrdch, oswrch, oskey, osline, oscli, osopen, osbyte, osword,
     osshut, osbget, osbput, getptr, setptr, getext };
 
 static const char *asmmsg[] = {
@@ -251,7 +251,7 @@ static unsigned char reg8 (void)
     return i;
     }
 
-static int reglist (void) 
+static int reglist (void)
     {
 	int temp = 0;
 	if (nxt () != '{')
@@ -308,14 +308,14 @@ static int offset2 (int *pbImm)
 
 static void tabit (int x)
 {
-	if (vcount == x) 
+	if (vcount == x)
 		return ;
 	if (vcount > x)
 		crlf () ;
 	spaces (x - vcount) ;
 }
 
-static void poke (const void *p, int n) 
+static void poke (const void *p, int n)
     {
 	char *d;
 	if (liston & BIT6)
@@ -431,7 +431,7 @@ void assemble (void)
 		al = nxt ();
 		esi++;
 
-		switch (al) 
+		switch (al)
 		    {
 			case 0:
 				esi--;
@@ -490,7 +490,7 @@ void assemble (void)
 							n -= 4;
 							oldpc += 4;
 						    }
-						else 
+						else
 							n = 0;
 
 						text (accs);
@@ -506,7 +506,7 @@ void assemble (void)
 							while (*oldesi == ' ') oldesi++;
 						    }
 						tabit (30);
-						while ((*oldesi != ':') && (*oldesi != 0x0D)) 
+						while ((*oldesi != ':') && (*oldesi != 0x0D))
 							token (*oldesi++);
 						crlf ();
 					    }
@@ -515,7 +515,7 @@ void assemble (void)
 				nxt ();
 #ifdef __arm__
 				if ((liston & BIT6) == 0)
-					__builtin___clear_cache (oldpc, PC); 
+					__builtin___clear_cache (oldpc, PC);
 #endif
 				oldpc = PC;
 				oldesi = esi;
@@ -556,7 +556,7 @@ void assemble (void)
 				if (mnemonic != OPT) init = 0;
                 instruction = opcodes[NOP];
                 int instruction2 = -1;
-                
+
 				switch (mnemonic)
 				    {
 					case OPT:
@@ -586,7 +586,7 @@ void assemble (void)
                     poke (&n, 1);
                     continue; // n.b. not break
                     }
- 
+
 					case DCW:
 					case EQUW:
                     {
@@ -648,7 +648,7 @@ void assemble (void)
                                 asmerr (105); // 'invalid alignment'
                             instruction = opcodes[NOP];
                             while (stavar[16] & (n - 1))
-                                poke (&instruction, 2); 
+                                poke (&instruction, 2);
                             }
                         continue;
 
@@ -715,7 +715,7 @@ void assemble (void)
                                 }
                             }
                         break;
-                        
+
 					case CMP:
                     {
                     // <opcode> <reg8>, #<imm8>
@@ -869,7 +869,7 @@ void assemble (void)
                     instruction = opcodes[mnemonic] | ( rm << 3 ) | rd;
                     break;
                     }
-                    
+
                     case MVN:
                         chkstatus ();
 					case CMN:
@@ -1096,7 +1096,7 @@ void assemble (void)
 
 					case B:
                     {
-                    condition = lookup (conditions, 
+                    condition = lookup (conditions,
                         sizeof(conditions) / sizeof(conditions[0]));
 
                     if (condition == -1)
@@ -1118,7 +1118,7 @@ void assemble (void)
                             }
                         condition = 0;
                         }
-                    
+
                     int dest = (void *) (size_t) expri () - PC - 4;
                     if ( dest & 0x01 ) asmerr (105);    // 'Invalid alignment'
                     dest >>= 1;
@@ -1148,7 +1148,7 @@ void assemble (void)
                     case CPSIE:
                         nxt ();
                         if (( *esi == 'i' ) || ( *esi == 'I' )) ++esi;
-                        else asmerr (16); // 'Syntax error' 
+                        else asmerr (16); // 'Syntax error'
                         instruction = opcodes[mnemonic];
                         break;
 
@@ -1318,7 +1318,7 @@ void assemble (void)
                             asmerr (16); // 'Syntax error'
                             }
                         break;
-                    
+
 					case STM:
                     {
                     // STM <reg8>!, <reg8 list>

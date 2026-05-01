@@ -248,7 +248,7 @@ static void *mymap (uintptr_t size)
 	    {
 		sscanf (line, "%p-%p", &start, &finish) ;
 		start = (void *)((size_t)start & -0x1000) ; // page align (GCC extension)
-		if (start >= (base + size)) 
+		if (start >= (base + size))
 			return base ;
 		base = (void *)(((size_t)finish + 0xFFF) & -0x1000) ; // page align
 	    }
@@ -1276,7 +1276,7 @@ void *sysadr (char *name)
 #else
 	void *addr = NULL ;
 	if (addr != NULL)
-		return addr ; 
+		return addr ;
 	return dlsym (RTLD_DEFAULT, name) ;
 #endif
 }
@@ -1323,7 +1323,7 @@ int oscall (int addr)
 
 		case 0xFFF7: // OSCLI
 			oscli (xy) ;
-			return 0 ; 
+			return 0 ;
 
 		default:
             /* FIXME: RISC OS can do this */
@@ -2037,7 +2037,7 @@ static void UserTimerProc (UINT uUserTimerID, UINT uMsg, void *dwUser, void *dw1
 
 timer_t StartTimer (int period)
 {
-	return timeSetEvent (period, 0, (LPTIMECALLBACK) UserTimerProc, 0, TIME_PERIODIC) ; 
+	return timeSetEvent (period, 0, (LPTIMECALLBACK) UserTimerProc, 0, TIME_PERIODIC) ;
 }
 
 void StopTimer (timer_t timerid)
@@ -2048,7 +2048,7 @@ void StopTimer (timer_t timerid)
 void SystemIO (int flag)
 {
 	if (!flag)
-		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ; 
+		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ;
 }
 #endif
 
@@ -2229,7 +2229,7 @@ pthread_t hThread = 0 ;
 	// Now commit the initial amount to physical RAM:
 
 	if (base != NULL)
-		userRAM = mmap (base, MaximumRAM, PROT_EXEC | PROT_READ | PROT_WRITE, 
+		userRAM = mmap (base, MaximumRAM, PROT_EXEC | PROT_READ | PROT_WRITE,
 			    MAP_FIXED | MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0) ;
 
 #endif
@@ -2241,11 +2241,11 @@ pthread_t hThread = NULL ;
 	platform = 2 ;
 
 	while ((MaximumRAM >= MINIMUM_RAM) &&
-				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM, 
-						PROT_EXEC | PROT_READ | PROT_WRITE, 
+				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM,
+						PROT_EXEC | PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))) &&
-				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM, 
-						PROT_READ | PROT_WRITE, 
+				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM,
+						PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))))
 		MaximumRAM /= 2 ;
 #endif
@@ -2273,7 +2273,7 @@ pthread_t hThread = NULL ;
 		return 9 ;
 	    }
 
-#if defined __x86_64__ || defined __aarch64__ 
+#if defined __x86_64__ || defined __aarch64__
 	platform |= 0x40 ;
 #endif
 
@@ -2431,11 +2431,11 @@ pthread_t hThread = NULL ;
 #ifdef _WIN32
 	// n.b.  Description of DISABLE_NEWLINE_AUTO_RETURN at MSDN is completely wrong!
 	// What it actually does is to disable converting LF into CRLF, not wrap action.
-	if (GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), (LPDWORD) &orig_stdout)) 
+	if (GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), (LPDWORD) &orig_stdout))
 		SetConsoleMode (GetStdHandle(STD_OUTPUT_HANDLE), orig_stdout | ENABLE_WRAP_AT_EOL_OUTPUT |
                                 ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN) ;
-	if (GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), (LPDWORD) &orig_stdin)) 
-		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ; 
+	if (GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), (LPDWORD) &orig_stdin))
+		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ;
 	hThread = CreateThread (NULL, 0, myThread, 0, 0, NULL) ;
 #elif defined(__riscos)
     /* Nothing to do */

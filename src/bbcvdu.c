@@ -74,7 +74,7 @@ static short logicop[] =
         0x150D	// GCOL 7 - GL_OR_INVERTED
 } ;
 
-static SDL_BlendMode blendop[] = 
+static SDL_BlendMode blendop[] =
 {
 	SDL_BLENDMODE_NONE, // GCOL 0 - just plot
 	SDL_BLENDMODE_ADD,  // GCOL 1 - add
@@ -409,7 +409,7 @@ static void flooda (unsigned char col, unsigned char tar, int cx, int cy, int vl
 	p = (unsigned int*) malloc (rect.w * rect.h * 4) ;
 	BBC_RenderReadPixels (memhdc, &rect, SDL_PIXELFORMAT_ABGR8888, p, rect.w * 4) ;
 	flood(p, cx-rect.x, cy-rect.y, rect.w, rect.h, palette[(int)col], palette[(int)tar], 0) ;
-	tex = SDL_CreateTexture (memhdc, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, 
+	tex = SDL_CreateTexture (memhdc, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING,
 				rect.w, rect.h) ;
 	SDL_UpdateTexture (tex, NULL, p, rect.w * 4) ;
 	free (p) ;
@@ -432,7 +432,7 @@ static void floodb (unsigned char col, unsigned char tar, int cx, int cy, int vl
 	p = (unsigned int*) malloc (rect.w * rect.h * 4) ;
 	BBC_RenderReadPixels (memhdc, &rect, SDL_PIXELFORMAT_ABGR8888, p, rect.w * 4) ;
 	flood(p, cx-rect.x, cy-rect.y, rect.w, rect.h, palette[(int)col], palette[(int)tar], 1) ;
-	tex = SDL_CreateTexture (memhdc, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, 
+	tex = SDL_CreateTexture (memhdc, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING,
 				rect.w, rect.h) ;
 	SDL_UpdateTexture (tex, NULL, p, rect.w * 4) ;
 	free (p) ;
@@ -671,19 +671,19 @@ static void scroll (char al, char ah)
 	switch (al & 3)
 	{
 	case 0:		// scroll right
-		blit (tl + charx, tt, tl, tt, tr - charx, tb, txtbak + 0x80000000) ; 
+		blit (tl + charx, tt, tl, tt, tr - charx, tb, txtbak + 0x80000000) ;
 		break ;
 
 	case 2:		// scroll left
-		blit (tl, tt, tl + charx, tt, tr - charx, tb, txtbak + 0x80000000) ; 
+		blit (tl, tt, tl + charx, tt, tr - charx, tb, txtbak + 0x80000000) ;
 		break ;
 
 	case 1:		// scroll down
-		blit (tl, tt + chary, tl, tt, tr, tb - chary, txtbak + 0x80000000) ; 
+		blit (tl, tt + chary, tl, tt, tr, tb - chary, txtbak + 0x80000000) ;
 		break ;
 
 	case 3:		// scroll up
-		blit (tl, tt, tl, tt + chary, tr, tb - chary, txtbak + 0x80000000) ; 
+		blit (tl, tt, tl, tt + chary, tr, tb - chary, txtbak + 0x80000000) ;
 	}
 	bChanged = 1 ;
 }
@@ -1239,7 +1239,7 @@ static void rescol (void)
 }
 
 // Change to a new screen mode:
-static void newmode (short wx, short wy, short cx, short cy, short nc, signed char bc) 
+static void newmode (short wx, short wy, short cx, short cy, short nc, signed char bc)
 {
 	SDL_Texture *tex ;
 
@@ -1308,12 +1308,12 @@ static void newmode (short wx, short wy, short cx, short cy, short nc, signed ch
 static void vduinit (void)
 {
 #ifdef __EMSCRIPTEN__
-	blendop[3] = SDL_ComposeCustomBlendMode (SDL_BLENDFACTOR_ONE_MINUS_DST_COLOR, 
-			SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR, SDL_BLENDOPERATION_ADD, 
+	blendop[3] = SDL_ComposeCustomBlendMode (SDL_BLENDFACTOR_ONE_MINUS_DST_COLOR,
+			SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR, SDL_BLENDOPERATION_ADD,
 			SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD) ;
 	blendop[4] = blendop[3] ;
-	blendop[5] = SDL_ComposeCustomBlendMode (SDL_BLENDFACTOR_ZERO, 
-			SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD, 
+	blendop[5] = SDL_ComposeCustomBlendMode (SDL_BLENDFACTOR_ZERO,
+			SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD,
 			SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD) ;
 #endif
 	hfont = NULL ;
@@ -1472,7 +1472,7 @@ static void plotns (unsigned char al, int cx, int cy)
 		}
 
 		if ((lthick > 1) || (style != 0xFFFFFFFF))
-			thickLineColorStyle (memhdc, lx, ly, cx, cy, 
+			thickLineColorStyle (memhdc, lx, ly, cx, cy,
 					     lthick, palette[(int) col], style) ;
 		else
 		{
@@ -1778,7 +1778,7 @@ static void setpal (unsigned char n, signed char m, unsigned char r, unsigned ch
 }
 
 //VDU 22,n - MODE n
-static void modechg (char al) 
+static void modechg (char al)
 {
 	short wx, wy, cx, cy, nc ;
 
@@ -1853,7 +1853,7 @@ static void defchr (unsigned char n, unsigned char a, unsigned char b,
 		    {
 			if (b)
 				vflags |= EGAFLG ;
-			else 
+			else
 				vflags &= ~EGAFLG ;
 			if (modeno == 7)
 				page7 () ;
@@ -2183,7 +2183,7 @@ int vtint_ (int x, int y)
 
 // Get text caret coordinates:
 // x returned in LS 16 bits, y in MS 16 bits
-int getcsr_ (void) 
+int getcsr_ (void)
 {
 	unsigned short x, y ;
 	if ((cmcflg & BIT1) != 0)
@@ -2391,7 +2391,7 @@ long long apicall_ (long long (*APIfunc) (size_t, size_t, size_t, size_t, size_t
 #ifdef ARMHF
 	if (p->f[0] == -1.7e308)
 		memcpy (&p->f[0], &p->i[0], 48) ;
-	if ((void*) APIfunc == (void*) SDL_RenderCopyEx) 
+	if ((void*) APIfunc == (void*) SDL_RenderCopyEx)
 	    {
 		memcpy (&p->f[0], &p->i[4], 8) ;
 		memcpy (&p->i[4], &p->i[6], 24) ;
@@ -2426,7 +2426,7 @@ double fltcall_ (double (*APIfunc) (size_t, size_t, size_t, size_t, size_t, size
 #ifdef ARMHF
 	if (p->f[0] == -1.7e308)
 		memcpy (&p->f[0], &p->i[0], 48) ;
-	if ((void*) APIfunc == (void*) SDL_RenderCopyEx) 
+	if ((void*) APIfunc == (void*) SDL_RenderCopyEx)
 	    {
 		memcpy (&p->f[0], &p->i[4], 8) ;
 		memcpy (&p->i[4], &p->i[6], 24) ;

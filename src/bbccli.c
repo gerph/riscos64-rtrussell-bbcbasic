@@ -1018,7 +1018,7 @@ void oscli (char *cmd)
 				    }
 				n = SDL_RWread (srcfile, dbuff, 1, 16 - (b & 15)) ;
 				if (n <= 0) break ;
-				if ((h > 0) && (n > h)) n = h ; 
+				if ((h > 0) && (n > h)) n = h ;
 				memset (path1, ' ', 80) ;
 				sprintf (path1, "%08X  ", b) ;
 				for (i = 0; i < n; i++)

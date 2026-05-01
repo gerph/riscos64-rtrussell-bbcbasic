@@ -27,8 +27,8 @@
 #endif
 
 #if defined(__x86_64__) || defined(__aarch64__)
-#define OC ((unsigned int) stavar[15] + (void *)((long long) stavar[13] << 32)) 
-#define PC ((unsigned int) stavar[16] + (void *)((long long) stavar[17] << 32)) 
+#define OC ((unsigned int) stavar[15] + (void *)((long long) stavar[13] << 32))
+#define PC ((unsigned int) stavar[16] + (void *)((long long) stavar[17] << 32))
 #else
 #define OC (void *) stavar[15]
 #define PC (void *) stavar[16]
@@ -94,7 +94,7 @@ static inline int reg_size( unsigned reg )
     return reg & 0x60;
 }
 
-// Registers can be 64-bit Xnn, XZR, SP, LR, or 32-bit Wnn, WZR, 
+// Registers can be 64-bit Xnn, XZR, SP, LR, or 32-bit Wnn, WZR,
 static unsigned char reg (void)
 {
     nxt () ;
@@ -386,7 +386,7 @@ static char *oslist[] = {
         "osshut", "osbget", "osbput", "getptr", "setptr", "getext" } ;
 
 static void *osfunc[] = {
-        osrdch, oswrch, oskey, osline, oscli, osopen, osbyte, osword, 
+        osrdch, oswrch, oskey, osline, oscli, osopen, osbyte, osword,
         osshut, osbget, osbput, getptr, setptr, getext } ;
 
 static int lookup (char **arr, int num)
@@ -450,7 +450,7 @@ static enum mnemonics lookup_mnemonic(void)
         int cmp = strnicmp (mnemonics[i], code, n) ;
 
         if (cmp <= 0)
-            {    
+            {
             if (cmp == 0)
                 best = i; // There may be a better match later in the alphabetically sorted array
 
@@ -486,14 +486,14 @@ static int shift_type(void)
 
 static void tabit (int x)
 {
-    if (vcount == x) 
+    if (vcount == x)
         return ;
     if (vcount > x)
         crlf () ;
     spaces (x - vcount) ;
 }
 
-static void poke (void *p, int n) 
+static void poke (void *p, int n)
 {
     char *d ;
     if (liston & BIT6)
@@ -766,7 +766,7 @@ static int validated_N_immr_imms( long long imm, unsigned word_data )
             }
         else
             {
-            // Clear N, 
+            // Clear N,
             result |= (64 - (2 * pattern_size)) ;
             }
 
@@ -931,7 +931,7 @@ void assemble (void)
         al = nxt () ;
         esi++ ;
 
-        switch (al) 
+        switch (al)
             {
             case 0:
                 esi-- ;
@@ -986,7 +986,7 @@ void assemble (void)
                             p += 4 ;
                             oldpc += 4 ;
                             }
-                        else 
+                        else
                             n = 0 ;
 
                         text (accs) ;
@@ -994,7 +994,7 @@ void assemble (void)
                         if (*oldesi == '.')
                             {
                             tabit (26) ;
-                            do    
+                            do
                                 {
                                 token (*oldesi++ ) ;
                                 }
@@ -1002,7 +1002,7 @@ void assemble (void)
                             while (*oldesi == ' ') oldesi++ ;
                             }
                         tabit (38) ;
-                        while ((*oldesi != ':') && (*oldesi != 0x0D)) 
+                        while ((*oldesi != ':') && (*oldesi != 0x0D))
                             token (*oldesi++) ;
                         crlf () ;
                         }
@@ -1086,7 +1086,7 @@ void assemble (void)
                         poke (&n, 1) ;
                         continue ; // n.b. not break
                         }
- 
+
                     case DCW:
                     case EQUW:
                         {
@@ -1150,7 +1150,7 @@ void assemble (void)
                                 error (16, NULL) ; // 'Syntax error'
                             instruction = 0xE1A00000 ;
                             while (stavar[16] & (n - 1))
-                                poke (&instruction, 4) ; 
+                                poke (&instruction, 4) ;
                             }
                         continue ;
 
@@ -1676,7 +1676,7 @@ void assemble (void)
                         comma () ;
                         unsigned m = reg () ;
 
-                        if (32 == reg_size( n ) 
+                        if (32 == reg_size( n )
                          || 32 == reg_size( n ) )
                             error( 16, NULL ) ;
 
@@ -2041,8 +2041,8 @@ void assemble (void)
                             default: assembler_error() ;
                             }
 
-                        if (64 == reg_size( s ) 
-                         || 64 == reg_size( t ) 
+                        if (64 == reg_size( s )
+                         || 64 == reg_size( t )
                          || 32 == reg_size( n ) )
                             error( 16, NULL ) ;
 
@@ -2111,7 +2111,7 @@ void assemble (void)
                         unsigned word_data = 32 == reg_size( t )  ;
                         unsigned size_bit = word_data ? 0 : (1 << 30) ;
 
-                        if (32 == reg_size( n ) 
+                        if (32 == reg_size( n )
                          || (only_32bit && !word_data))
                             error( 16, NULL ) ;
 
@@ -2166,7 +2166,7 @@ void assemble (void)
 
                         close_square() ;
 
-                        if (reg_size( t ) != reg_size( s ) 
+                        if (reg_size( t ) != reg_size( s )
                          || (only_32bit && 64 == reg_size( t ) )
                          || 32 == reg_size( n ) )
                             error( 16, NULL ) ;
@@ -2294,7 +2294,7 @@ void assemble (void)
 
                         close_square() ;
 
-                        if (64 == reg_size( s ) 
+                        if (64 == reg_size( s )
                          || reg_size( t1 ) != reg_size( t2 )
                          || (32 == reg_size( n ) ))
                             error( 16, NULL ) ;
@@ -2339,7 +2339,7 @@ void assemble (void)
                         unsigned word_data = 32 == reg_size( t )  ;
                         unsigned size_bit = word_data ? 0 : (1 << 30) ;
 
-                        if (64 == reg_size( s ) 
+                        if (64 == reg_size( s )
                          || (32 == reg_size( n ) )
                          || (!word_data && mnemonic != STLXR))
                             error( 16, NULL ) ;
@@ -2382,8 +2382,8 @@ void assemble (void)
                             instruction |= (1 << 11) ; // W
                             }
 
-                        if (32 == reg_size( t ) 
-                         || 32 == reg_size( n ) 
+                        if (32 == reg_size( t )
+                         || 32 == reg_size( n )
                          || 0 != (offset & 7)
                          || offset < -4096 || offset > 4088)
                             error( 16, NULL ) ;
@@ -2607,7 +2607,7 @@ void assemble (void)
                             default: assembler_error() ;
                             }
 
-                        if (64 == reg_size( s ) 
+                        if (64 == reg_size( s )
                          || 32 == reg_size( n ) )
                             error( 16, NULL ) ;
 
@@ -2705,10 +2705,10 @@ void assemble (void)
 
                         switch (mnemonic)       // C6.2.39
                             {
-                            case CASP:  instruction = 0x08207c00 | 0x00000000; break; 
-                            case CASPA: instruction = 0x08207c00 | 0x00400000; break; 
-                            case CASPAL:instruction = 0x08207c00 | 0x00408000; break; 
-                            case CASPL: instruction = 0x08207c00 | 0x00008000; break; 
+                            case CASP:  instruction = 0x08207c00 | 0x00000000; break;
+                            case CASPA: instruction = 0x08207c00 | 0x00400000; break;
+                            case CASPAL:instruction = 0x08207c00 | 0x00408000; break;
+                            case CASPL: instruction = 0x08207c00 | 0x00008000; break;
 
                             default: assembler_error() ;
                             }
@@ -3077,7 +3077,7 @@ void assemble (void)
                         optional_zero_offset() ;
                         close_square () ;
 
-                        if (32 == reg_size( n ) 
+                        if (32 == reg_size( n )
                          || reg_size( t1 ) != reg_size( t2 ))
                             error( 16, NULL ) ;
 
@@ -3525,7 +3525,7 @@ void assemble (void)
                                 break; // C6.2.137
                             default: assembler_error();
                             };
-                        
+
                         instruction |= (t & 0x1f) << 0;
                         instruction |= (addressing.n & 0x1f) << 5;
                         // Not as wide a range of addresses as LDR
@@ -3563,7 +3563,7 @@ void assemble (void)
                                 break; // C6.2.140
                             default: assembler_error();
                             };
-                        
+
                         instruction |= size_bit;
                         instruction |= (t & 0x1f) << 0;
                         instruction |= (addressing.n & 0x1f) << 5;
@@ -3695,7 +3695,7 @@ void assemble (void)
                         unsigned word_data = 32 == reg_size( t )  ;
                         unsigned size_bit = word_data ? 0 : (1 << 30) ;
 
-                        if (32 == reg_size( n ) 
+                        if (32 == reg_size( n )
                          || 64 == reg_size( s ) )
                             error( 16, NULL ) ;
 
@@ -3882,9 +3882,9 @@ void assemble (void)
                         comma () ;
                         unsigned a = reg () ;
 
-                        if (32 == reg_size( d ) 
-                         || 64 == reg_size( n ) 
-                         || 64 == reg_size( m ) 
+                        if (32 == reg_size( d )
+                         || 64 == reg_size( n )
+                         || 64 == reg_size( m )
                          || 32 == reg_size( a ) )
                             error( 16, "Registers must be: Xd, Wn, Wm, Xa" ) ;
 
@@ -3920,8 +3920,8 @@ void assemble (void)
                         comma () ;
                         unsigned m = reg () ;
 
-                        if (32 == reg_size( d ) 
-                         || 64 == reg_size( n ) 
+                        if (32 == reg_size( d )
+                         || 64 == reg_size( n )
                          || 64 == reg_size( m ) )
                             error( 16, "Registers must be: Xd, Wn, Wm" ) ;
 
@@ -4312,7 +4312,7 @@ void assemble (void)
 
                         if (mnemonic == TST)
                             {
-                            d = 0x1f | reg_size( n ) | REGISTER_IS_ZERO; 
+                            d = 0x1f | reg_size( n ) | REGISTER_IS_ZERO;
                             }
 
                         if (reg_size( d ) != reg_size( n ))
@@ -4332,7 +4332,7 @@ void assemble (void)
                                 case ORR:       instruction = 0x32000000; break; // C6.2.185
                                 default: assembler_error() ;
                                 }
-                            
+
                             esi++;
                             long long imm = expri () ;
                             instruction |= validated_N_immr_imms( imm, word_data ) << 10;
@@ -4349,7 +4349,7 @@ void assemble (void)
                                 case ORR:       instruction = 0x2a000000; break; // C6.2.186
                                 default: assembler_error() ;
                                 }
-                            
+
                             unsigned m = reg () ;
 
                             int shift = 0;
@@ -4399,8 +4399,8 @@ void assemble (void)
                             default: assembler_error() ;
                             }
 
-                        if (32 == reg_size( d ) 
-                         || 32 == reg_size( n ) 
+                        if (32 == reg_size( d )
+                         || 32 == reg_size( n )
                          || (n == 31 && 0 != (n & REGISTER_IS_ZERO))) // XZR not allowed
                             {
                             error( 16, NULL ) ;
@@ -4425,7 +4425,7 @@ void assemble (void)
                             case PACIZB: instruction = 0xdac127e0; break;       // C6.2.191
                             default: assembler_error() ;
                             }
-                        
+
                         instruction |= (d & 0x1f) << 0;
                         if (32 == reg_size( d ) )
                             {
@@ -4448,9 +4448,9 @@ void assemble (void)
                             default: assembler_error() ;
                             }
 
-                        if (32 == reg_size( d ) 
-                         || 32 == reg_size( n ) 
-                         || 32 == reg_size( m ) 
+                        if (32 == reg_size( d )
+                         || 32 == reg_size( n )
+                         || 32 == reg_size( m )
                          || (m == 31 && 0 != (m & REGISTER_IS_ZERO))) // XZR not allowed
                             {
                             error( 16, NULL ) ;
@@ -4553,7 +4553,7 @@ void assemble (void)
                             case RBIT:
                             case REV16: if (64 == reg_size( n ) ) instruction |= (1 << 31) ; break;
 
-                            case REV32: 
+                            case REV32:
                             case REV64: if (32 == reg_size( n ) ) error( 16, NULL ) ; break;
 
                             default: assembler_error() ;
@@ -4583,8 +4583,8 @@ void assemble (void)
                             default: assembler_error() ;
                             }
 
-                        if (32 == reg_size( d ) 
-                         || 32 == reg_size( n ) 
+                        if (32 == reg_size( d )
+                         || 32 == reg_size( n )
                          || 32 == reg_size( m ) )
                             error( 16, NULL ) ;
 
@@ -4628,7 +4628,7 @@ void assemble (void)
                             case SBFIZ: c1 = ((unsigned) -c1) % reg_size( d ); c2 --; break;
 
                             case UBFX:
-                            case SBFX: c2 += c1 - 1; break; 
+                            case SBFX: c2 += c1 - 1; break;
 
                             case SBFM: break;
                             case UBFM: break;
@@ -4690,7 +4690,7 @@ void assemble (void)
                             default: assembler_error() ;
                             }
 
-                        if (reg_size( d ) < reg_size( n ) 
+                        if (reg_size( d ) < reg_size( n )
                          || c1 < 0 || c1 >= reg_size( d )
                          || c2 < 0 || c2 >= reg_size( d )
                          || ( word_data && mnemonic == SXTW)

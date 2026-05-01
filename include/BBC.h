@@ -205,7 +205,7 @@ extern void *libtop;
 #define BIT7	0x80
 
 // Flag bits:
-#define ESCFLG	BIT7	// ESCape key pressed 
+#define ESCFLG	BIT7	// ESCape key pressed
 #define ESCDIS	BIT6	// ESCape key disabled (*ESC OFF)
 #define ALERT	BIT5	// Pending event interrupt
 #define FLASH	BIT4	// MODE 7 flash update needed
@@ -229,7 +229,7 @@ typedef struct tagPARM
 // n.b. GCC pads a long double to 16 bytes (128 bits) for alignment reasons but only
 // the least-significant 80-bits need to be stored on the heap, in files etc.
 // When a long double is 64-bits rather than 80-bits (e.g. ARM) it will be necessary
-// to force the type word (.i.t or .s.t member) to a value other than 0 or -1. 
+// to force the type word (.i.t or .s.t member) to a value other than 0 or -1.
 typedef union __attribute__ ((packed)) __attribute__ ((aligned (4))) tagVAR
 {
 #if defined __arm__ || defined __aarch64__ || defined __EMSCRIPTEN__ || defined __ANDROID__
@@ -253,7 +253,7 @@ typedef union __attribute__ ((packed)) __attribute__ ((aligned (4))) tagVAR
 	  double d ;
 	  short t ; // unused (loadn/storen only)
 	} d ;
-} VAR, *LPVAR ; 
+} VAR, *LPVAR ;
 
 // String descriptor:
 typedef struct __attribute__ ((packed)) __attribute__ ((aligned (4))) tagSTR
@@ -326,7 +326,7 @@ extern heapptr clotrp ;		// Pointer to ON CLOSE handler
 extern heapptr siztrp ;		// Pointer to ON MOVE handler
 extern heapptr systrp ;		// Pointer to ON SYS handler
 extern heapptr moutrp ;		// Pointer to ON MOUSE handler
-extern heapptr libase ;		// Base of libraries 
+extern heapptr libase ;		// Base of libraries
 extern heapptr datptr ;		// DATA pointer
 extern heapptr lomem ;		// Pointer to base of heap
 extern heapptr pfree ;		// Pointer to free space
@@ -382,17 +382,17 @@ static inline void ISTORE(void* p, int i){ if ((intptr_t)p&3) *((unaligned_int*)
 #else
 #define ILOAD(p)    *((unaligned_int*)(p))
 #define ISTORE(p,i) *((unaligned_int*)(p)) = i
-#endif 
+#endif
 
 #define TLOAD(p)    *((unaligned_intptr_t*)(p))
-#define TSTORE(p,i) *((unaligned_intptr_t*)(p)) = i 
+#define TSTORE(p,i) *((unaligned_intptr_t*)(p)) = i
 #define ULOAD(p)    *((unaligned_uint*)(p))
-#define USTORE(p,i) *((unaligned_uint*)(p)) = i 
+#define USTORE(p,i) *((unaligned_uint*)(p)) = i
 #define SLOAD(p)    *((unaligned_ushort*)(p))
-#define SSTORE(p,i) *((unaligned_ushort*)(p)) = i 
+#define SSTORE(p,i) *((unaligned_ushort*)(p)) = i
 #define VLOAD(p)    *((unaligned_void_ptr*)(p))
-#define VSTORE(p,i) *((unaligned_void_ptr*)(p)) = i 
+#define VSTORE(p,i) *((unaligned_void_ptr*)(p)) = i
 #define CLOAD(p)    *((unaligned_char_ptr*)(p))
-#define CSTORE(p,i) *((unaligned_char_ptr*)(p)) = i 
+#define CSTORE(p,i) *((unaligned_char_ptr*)(p)) = i
 #define NLOAD(p)    *((unaligned_VAR*)(p))
 #define NSTORE(p,i) *((unaligned_VAR*)(p)) = i

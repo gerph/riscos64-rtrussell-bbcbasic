@@ -29,9 +29,9 @@ static int compare (void *src, void *dst, unsigned char type)
 	switch (type)
 	    {
 		case 1:	return	(*(unsigned char*)dst > *(unsigned char*)src) -
-				(*(unsigned char*)dst < *(unsigned char*)src) ; 
+				(*(unsigned char*)dst < *(unsigned char*)src) ;
 
-		case 4: return	(*(int*)dst > *(int*)src) - (*(int*)dst < *(int*)src) ; 
+		case 4: return	(*(int*)dst > *(int*)src) - (*(int*)dst < *(int*)src) ;
 
 		case 10:
 			if ((*(short*)(dst+8) == 0) && (*(short*)(src+8) == 0))
@@ -48,7 +48,7 @@ static int compare (void *src, void *dst, unsigned char type)
 				s = *(variant *)src ;
 			return (d > s) - (d < s) ;
 		    }
-		    
+		
 		case 8:
 		    {
 			double d = *(double *)dst ;
@@ -119,7 +119,7 @@ void sortup (int eax, int ebx, int ecx, unsigned int edx, unsigned int esi, unsi
 				char *src = ebx + esi * (type & 15) ;
 				char *dst = ebx + edi * (type & 15) ;
 				result = compare (src, dst, type) ;
-				if (result) 
+				if (result)
 					break ;
 			    }
 			if (result < 0)
@@ -191,7 +191,7 @@ void sortdn (int eax, int ebx, int ecx, unsigned int edx, unsigned int esi, unsi
 				char *src = ebx + esi * (type & 15) ;
 				char *dst = ebx + edi * (type & 15) ;
 				result = compare (src, dst, type) ;
-				if (result) 
+				if (result)
 					break ;
 			    }
 			if (result > 0)
