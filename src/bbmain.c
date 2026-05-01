@@ -1605,6 +1605,37 @@ static int save_format_name (char *name, int len)
 	return 0 ;
 }
 
+static void infer_save_filename (char *name)
+{
+	signed char *line ;
+	signed char *p ;
+	char *q ;
+
+	line = vpage + (signed char *) zero ;
+	if (*line == 0)
+		error (253, "Bad string") ;
+	p = line + 3 ;
+	if (*p++ != TREM)
+		error (253, "Bad string") ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	if (*p++ != '>')
+		error (253, "Bad string") ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+
+	q = name ;
+	while ((*p != 0) && (*p != 0x0D))
+	    {
+		if ((q - name) >= (ACCSLEN - 1))
+			error (19, NULL) ;
+		*q++ = *p++ ;
+	    }
+	while ((q > name) && ((q[-1] == ' ') || (q[-1] == '\t')))
+		q-- ;
+	*q = 0 ;
+	if (q == name)
+		error (253, "Bad string") ;
+}
+
 static char *parse_filename (char *command, char *name)
 {
 	char *p ;
@@ -1659,6 +1690,13 @@ static int parse_save_command (char *command, char *name)
 	int len ;
 	int format ;
 
+	p = command ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	if ((*p == 0) || (*p == 0x0D))
+	    {
+		infer_save_filename (name) ;
+		return 0 ;
+	    }
 	p = parse_filename (command, name) ;
 	format = 0 ;
 	while ((*p == ' ') || (*p == '\t')) p++ ;
