@@ -2141,10 +2141,12 @@ void osload (char *p, void *addr, unsigned int max)
 }
 
 // Save a file from memory:
-void ossave (char *p, void *addr, unsigned int len)
+void ossave (char *p, void *addr, unsigned int len, int format)
 {
 	int n ;
 	SDL_RWops *file ;
+	(void) format ;
+
 	if (NULL == setup (path, p, ".bbc", '\0', NULL))
 		error (253, "Bad string") ;
 	file = SDL_RWFromFile (path, "w+b") ;
@@ -2493,4 +2495,3 @@ int entry (void *immediate)
 	pushev (EVT_QUIT, NULL, (void *)(intptr_t) basic (progRAM, userTOP, immediate)) ;
 	return 0 ;
 }
-

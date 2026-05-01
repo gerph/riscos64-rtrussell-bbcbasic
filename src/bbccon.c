@@ -85,6 +85,16 @@ dispatch_queue_t timerqueue ;
 #define MAX_PATH 260
 #define AUDIOLEN 441 * 4
 
+#define BASIC_SAVE_ACORN 0
+#define BASIC_SAVE_RTR   1
+#define RTR_TLINO        0x8D
+#define RTR_TPOINT       0xB0
+#define RTR_TSUM         0xC6
+#define RTR_TWHILE       0xC7
+#define RTR_TCASE        0xC8
+#define RTR_TDATA        0xDC
+#define RTR_TREM         0xF4
+
 // Global variables (external linkage):
 
 void *userRAM = NULL ;
@@ -1494,6 +1504,120 @@ static int convert_bbc_basic (unsigned char *src, int len, unsigned char *dst, i
 	return -1 ;
 }
 
+static int rtr_to_bbc_extended_token (int token, unsigned char *dst)
+{
+	switch (token)
+	    {
+		case 0x01: dst[0] = 0xC8 ; dst[1] = 0x8F ; return 2 ; /* CIRCLE */
+		case 0x02: dst[0] = 0xC8 ; dst[1] = 0x9D ; return 2 ; /* ELLIPSE */
+		case 0x03: dst[0] = 0xC8 ; dst[1] = 0x90 ; return 2 ; /* FILL */
+		case 0x04: dst[0] = 0xC8 ; dst[1] = 0x97 ; return 2 ; /* MOUSE */
+		case 0x05: dst[0] = 0xC8 ; dst[1] = 0x91 ; return 2 ; /* ORIGIN */
+		case 0x06: dst[0] = 0xC7 ; dst[1] = 0x98 ; return 2 ; /* QUIT */
+		case 0x07: dst[0] = 0xC8 ; dst[1] = 0x93 ; return 2 ; /* RECTANGLE */
+		case 0x08: dst[0] = 0xC8 ; dst[1] = 0x94 ; return 2 ; /* SWAP */
+		case 0x09: dst[0] = 0xC8 ; dst[1] = 0x99 ; return 2 ; /* SYS */
+		case 0x0A: dst[0] = 0xC8 ; dst[1] = 0x9C ; return 2 ; /* TINT */
+		case 0x0B: dst[0] = 0xC7 ; dst[1] = 0x96 ; return 2 ; /* WAIT */
+		case 0x0C: dst[0] = 0x9F ; return 1 ;                 /* INSTALL */
+		case RTR_TPOINT: dst[0] = 0xC8 ; dst[1] = 0x92 ; return 2 ;
+		case RTR_TSUM: dst[0] = 0xC6 ; dst[1] = 0x8E ; return 2 ;
+		case RTR_TWHILE: dst[0] = 0xC8 ; dst[1] = 0x95 ; return 2 ;
+		case RTR_TCASE: dst[0] = 0xC8 ; dst[1] = 0x8E ; return 2 ;
+	    }
+	dst[0] = token ;
+	return 1 ;
+}
+
+static int convert_rtr_basic (unsigned char *src, int len, unsigned char *dst, int max)
+{
+	int in = 0 ;
+	int out = 0 ;
+
+	while (in < len)
+	    {
+		int line_len = src[in] ;
+		int body ;
+		int body_end ;
+		int bbc_len_pos ;
+		int bbc_body_start ;
+		int quoted = 0 ;
+
+		if (line_len == 0)
+		    {
+			if (out == 0)
+			    {
+				if ((out + 1) > max)
+					return -1 ;
+				dst[out++] = 0x0D ;
+			    }
+			if ((out + 1) > max)
+				return -1 ;
+			dst[out++] = 0xFF ;
+			return out ;
+		    }
+		if ((line_len < 4) || ((in + line_len) > len))
+			return -1 ;
+		if ((out + 3 + (out == 0)) > max)
+			return -1 ;
+
+		if (out == 0)
+			dst[out++] = 0x0D ;
+		dst[out++] = src[in + 2] ;
+		dst[out++] = src[in + 1] ;
+		bbc_len_pos = out++ ;
+		bbc_body_start = out ;
+		body = in + 3 ;
+		body_end = in + line_len ;
+
+		while (body < body_end)
+		    {
+			int ch = src[body++] & 0xFF ;
+			unsigned char token[2] ;
+			int token_len ;
+			int i ;
+
+			if (!quoted && (ch == RTR_TLINO) && ((body + 3) <= body_end))
+			    {
+				if ((out + 4) > max)
+					return -1 ;
+				dst[out++] = ch ;
+				dst[out++] = src[body++] ;
+				dst[out++] = src[body++] ;
+				dst[out++] = src[body++] ;
+				continue ;
+			    }
+			if (!quoted && ((ch == RTR_TREM) || (ch == RTR_TDATA)))
+			    {
+				if ((out + 1 + body_end - body) > max)
+					return -1 ;
+				dst[out++] = ch ;
+				while (body < body_end)
+					dst[out++] = src[body++] ;
+				break ;
+			    }
+			if (ch == '"')
+				quoted = !quoted ;
+			if (!quoted)
+				token_len = rtr_to_bbc_extended_token (ch, token) ;
+			else
+			    {
+				token[0] = ch ;
+				token_len = 1 ;
+			    }
+			if ((out + token_len) > max)
+				return -1 ;
+			for (i = 0; i < token_len; i++)
+				dst[out++] = token[i] ;
+		    }
+		if ((out - bbc_body_start + 3) > 255)
+			return -1 ;
+		dst[bbc_len_pos] = out - bbc_body_start + 3 ;
+		in += line_len ;
+	    }
+	return -1 ;
+}
+
 static int load_basic_file (char *name, void *addr, unsigned int max)
 {
 	FILE *file ;
@@ -1588,10 +1712,13 @@ void osload (char *p, void *addr, unsigned int max)
 }
 
 // Save a file from memory:
-void ossave (char *p, void *addr, unsigned int len)
+void ossave (char *p, void *addr, unsigned int len, int format)
 {
 	int n ;
 	FILE *file ;
+	unsigned char *data = addr ;
+	unsigned char *converted = NULL ;
+	int write_len = len ;
 #ifdef __riscos
     file = fopen (p, "w+b") ;
 #else
@@ -1601,9 +1728,27 @@ void ossave (char *p, void *addr, unsigned int len)
 #endif
 	if (file == NULL)
 		error (214, "Couldn't create file") ;
-	n = fwrite (addr, 1, len, file) ;
+	if (format != BASIC_SAVE_RTR)
+	    {
+		converted = malloc (len * 2 + 2) ;
+		if (converted == NULL)
+		    {
+			fclose (file) ;
+			error (0, NULL) ;
+		    }
+		write_len = convert_rtr_basic (addr, len, converted, len * 2 + 2) ;
+		if (write_len < 0)
+		    {
+			free (converted) ;
+			fclose (file) ;
+			error (19, NULL) ;
+		    }
+		data = converted ;
+	    }
+	n = fwrite (data, 1, write_len, file) ;
 	fclose (file) ;
-	if (n < len)
+	free (converted) ;
+	if (n < write_len)
 		error (189, "Couldn't write to file") ;
 #ifdef __riscos
     _swix(OS_File, _INR(0, 2), 18, p, 0xFFB); /* Set type as BASIC */

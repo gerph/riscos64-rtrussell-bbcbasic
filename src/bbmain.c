@@ -24,7 +24,7 @@ void reset (void) ;		// Prepare for reporting an error
 void faterr (const char *) ;	// Report a 'fatal' error message
 void trap (void) ;		// Test for ESCape
 void osload (char*, void*, unsigned int) ; // Load a file to memory
-void ossave (char*, void*, unsigned int) ; // Save a file from memory
+void ossave (char*, void*, unsigned int, int) ; // Save a file from memory
 int osopen (int, char *) ;	// Open a file
 unsigned char osbget (int, int*) ; // Read a byte from a file
 void osshut (int) ;		// Close file(s)
@@ -1564,7 +1564,91 @@ static void fixup (signed char *ptr, int nlines, unsigned short start, unsigned 
 				text (accs) ;
 			    }
 		    }
+	}
+}
+
+static int save_format_name (char *name, int len)
+{
+	if ((len == 3) &&
+		((name[0] == 'R') || (name[0] == 'r')) &&
+		((name[1] == 'T') || (name[1] == 't')) &&
+		((name[2] == 'R') || (name[2] == 'r')))
+		return 1 ;
+	if ((len == 5) &&
+		((name[0] == 'A') || (name[0] == 'a')) &&
+		((name[1] == 'C') || (name[1] == 'c')) &&
+		((name[2] == 'O') || (name[2] == 'o')) &&
+		((name[3] == 'R') || (name[3] == 'r')) &&
+		((name[4] == 'N') || (name[4] == 'n')))
+		return 0 ;
+	error (253, "Bad string") ;
+	return 0 ;
+}
+
+static int parse_save_command (char *command, char *name)
+{
+	char *p ;
+	char *q ;
+	char *fmt ;
+	int len ;
+	int format ;
+
+	p = command ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	q = name ;
+	if (*p == '"')
+	    {
+		p++ ;
+		while ((*p != 0) && (*p != 0x0D) && (*p != '"'))
+		    {
+			if ((q - name) >= (ACCSLEN - 1))
+				error (19, NULL) ;
+			*q++ = *p++ ;
+		    }
+		if (*p != '"')
+			error (16, NULL) ;
+		p++ ;
 	    }
+	else
+	    {
+		while ((*p != 0) && (*p != 0x0D) && (*p != ','))
+		    {
+			if ((q - name) >= (ACCSLEN - 1))
+				error (19, NULL) ;
+			*q++ = *p++ ;
+		    }
+		while ((q > name) && ((q[-1] == ' ') || (q[-1] == '\t')))
+			q-- ;
+	    }
+	*q = 0 ;
+	if (q == name)
+		error (253, "Bad string") ;
+
+	format = 0 ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	if (*p == ',')
+	    {
+		p++ ;
+		while ((*p == ' ') || (*p == '\t')) p++ ;
+		if (*p != '"')
+			error (16, NULL) ;
+		p++ ;
+		fmt = p ;
+		len = 0 ;
+		while ((*p != 0) && (*p != 0x0D) && (*p != '"'))
+		    {
+			p++ ;
+			len++ ;
+		    }
+		if (*p != '"')
+			error (16, NULL) ;
+		format = save_format_name (fmt, len) ;
+		p++ ;
+		while ((*p == ' ') || (*p == '\t')) p++ ;
+	    }
+	if ((*p != 0) && (*p != 0x0D))
+		error (16, NULL) ;
+	return format ;
 }
 
 // Main interpreter entry point:
@@ -1856,10 +1940,13 @@ int basic (void *ecx, void *edx, void *prompt)
 					break ;
 
 				case 0x1F: // SAVE
+				    {
+					int format = parse_save_command (tmp, buff) ;
 					clear () ;
-					ossave (tmp, vpage + zero, gettop (vpage + zero, NULL) -
-						(signed char *) (vpage + zero) + 3) ;
+					ossave (buff, vpage + zero, gettop (vpage + zero, NULL) -
+						(signed char *) (vpage + zero) + 3, format) ;
 					break ;
+				    }
 
 				default:
 					prompt = NULL ;
