@@ -1618,7 +1618,7 @@ int basic (void *ecx, void *edx, void *prompt)
 		else if (errcode == 256)
 		    {
 			if (prompt == (void *) -1)
-				return (errcode) ;
+				return 0 ;
 			prompt = (void *) 1 ;
 		    }
 		else
