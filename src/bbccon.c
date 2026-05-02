@@ -1637,20 +1637,33 @@ static int text_line_number (char *str, int *nread, unsigned short *plino)
 	return 1 ;
 }
 
+static unsigned short load_line_number (signed char *ptr)
+{
+	unsigned short lino ;
+
+	lino = *(unsigned char *) ptr ;
+	lino |= (unsigned short) (*(unsigned char *)(ptr + 1)) << 8 ;
+	return lino ;
+}
+
 static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, int max)
 {
 	int in = 0 ;
-	int out = 0 ;
-	unsigned short next_lino = 0 ;
 	unsigned char old_liston ;
 
 	old_liston = liston ;
 	liston = 0x30 ;
+	*dst = 0 ;
 	while (in < len)
 	    {
+		char linebuf[256] ;
 		char *p ;
 		char *tmp ;
+		signed char *prog ;
+		signed char *end ;
+		signed char *ins ;
 		int n ;
+		int line_len ;
 		unsigned short lino ;
 
 		p = accs ;
@@ -1680,35 +1693,58 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 		*p = 0 ;
 		tmp = accs ;
 		n = 0 ;
-		lino = next_lino + 1 ;
-		text_line_number (tmp, &n, &lino) ;
-		next_lino = lino ;
-		tmp += n ;
-		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
-		if ((out + 255) > max)
+		if (!text_line_number (tmp, &n, &lino))
 		    {
 			liston = old_liston ;
 			return -1 ;
 		    }
-		n = lexan (tmp, (char *) dst + out + 3, 1) - ((char *) dst + out) ;
+		tmp += n ;
+		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
+		n = lexan (tmp, (char *) linebuf + 3, 1) - (char *) linebuf ;
 		if (n > 255)
 		    {
 			liston = old_liston ;
 			return -1 ;
 		    }
-		dst[out] = n ;
-		dst[out + 1] = lino & 0xFF ;
-		dst[out + 2] = lino >> 8 ;
-		out += n ;
+		linebuf[0] = n ;
+		linebuf[1] = lino & 0xFF ;
+		linebuf[2] = lino >> 8 ;
+		prog = (signed char *) dst ;
+		end = prog ;
+		while (*end)
+			end += (int)*(unsigned char *) end ;
+		ins = prog ;
+		while (*ins && (lino > load_line_number (ins + 1)))
+			ins += (int)*(unsigned char *) ins ;
+		line_len = *(unsigned char *) ins ;
+		if (*ins && (lino == load_line_number (ins + 1)))
+		    {
+			memmove (ins, ins + line_len, end - ins + 1 - line_len) ;
+		    }
+		else
+		    {
+			if (((end - prog) + n) > max)
+			    {
+				liston = old_liston ;
+				return -1 ;
+			    }
+			memmove (ins + n, ins, end - ins + 1) ;
+		    }
+		memcpy (ins, linebuf, n) ;
 	    }
-	if (out >= max)
-	    {
-		liston = old_liston ;
-		return -1 ;
-	    }
-	dst[out++] = 0 ;
 	liston = old_liston ;
-	return out ;
+	{
+		int size ;
+		signed char *scan = (signed char *) dst ;
+
+		size = 1 ;
+		while (*scan)
+		    {
+			size += (int)*(unsigned char *) scan ;
+			scan += (int)*(unsigned char *) scan ;
+		    }
+		return size ;
+	}
 }
 
 static int file_type (char *name)

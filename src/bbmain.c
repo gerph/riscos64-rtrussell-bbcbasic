@@ -1605,6 +1605,25 @@ static int save_format_name (char *name, int len)
 	return 0 ;
 }
 
+static int text_line_number (char *str, int *nread, unsigned short *plino)
+{
+	char *start ;
+	char *end ;
+	unsigned long lino ;
+
+	start = str ;
+	while ((*str == ' ') || (*str == '\t'))
+		str++ ;
+	if ((*str < '0') || (*str > '9'))
+		return 0 ;
+	lino = strtoul (str, &end, 10) ;
+	if ((end == str) || (lino > 65535))
+		return 0 ;
+	*nread = end - start ;
+	*plino = lino ;
+	return 1 ;
+}
+
 static void infer_save_filename (char *name)
 {
 	signed char *line ;
@@ -1727,19 +1746,21 @@ static int parse_save_command (char *command, char *name)
 
 static void load_text_buffer (unsigned char *data, int len, signed char *limit)
 {
-	signed char *dest ;
 	int pos ;
-	unsigned short lino ;
 
 	memset (vpage + zero, 0, 256) ;
-	dest = vpage + (signed char *) zero ;
 	pos = 0 ;
-	lino = 0 ;
 	while (pos < len)
 	    {
+		char linebuf[256] ;
 		char *p ;
 		char *tmp ;
+		signed char *prog ;
+		signed char *end ;
+		signed char *ins ;
 		int n ;
+		int line_len ;
+		unsigned short lino ;
 
 		p = accs ;
 		while (pos < len)
@@ -1752,27 +1773,49 @@ static void load_text_buffer (unsigned char *data, int len, signed char *limit)
 				if ((p - accs) >= (ACCSLEN - 2))
 					error (19, NULL) ;
 				*p++ = ch ;
-			    }
+				}
 		    }
 		*p++ = 0x0D ;
 		*p = 0 ;
 
 		tmp = accs ;
-		lino++ ;
 		n = 0 ;
-		lino = extract_lineno (tmp, &n, lino) ;
+		lino = 0 ;
+		if (!text_line_number (tmp, &n, &lino))
+			error (253, "Bad string") ;
 		tmp += n ;
 		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
-		n = lexan (tmp, (char *) dest + 3, 1) - (char *) dest ;
+		n = lexan (tmp, (char *) linebuf + 3, 1) - (char *) linebuf ;
 		if (n > 255)
 			error (19, NULL) ;
-		if ((dest + n) >= limit)
-			error (0, NULL) ;
-		*dest = n ;
-		SSTORE(dest + 1, lino) ;
-		dest += n ;
+		linebuf[0] = n ;
+		linebuf[1] = lino & 0xFF ;
+		linebuf[2] = lino >> 8 ;
+		prog = vpage + (signed char *) zero ;
+		end = prog ;
+		while (*end)
+			end += (int)*(unsigned char *) end ;
+		ins = prog ;
+		while (*ins && (lino > SLOAD(ins + 1)))
+			ins += (int)*(unsigned char *) ins ;
+		line_len = *(unsigned char *) ins ;
+		if (*ins && (lino == SLOAD(ins + 1)))
+			memmove (ins, ins + line_len, end - ins + 1 - line_len) ;
+		else
+		    {
+			if (((end - prog) + n) > (limit - prog))
+				error (0, NULL) ;
+			memmove (ins + n, ins, end - ins + 1) ;
+		    }
+		memcpy (ins, linebuf, n) ;
 	    }
-	*dest = 0 ;
+	{
+		signed char *scan ;
+		scan = vpage + (signed char *) zero ;
+		while (*scan)
+			scan += (int)*(unsigned char *) scan ;
+		*scan = 0 ;
+	}
 	clear () ;
 }
 
