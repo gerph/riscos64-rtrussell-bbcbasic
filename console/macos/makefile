@@ -23,8 +23,8 @@ bbccos.o: bbccos.c bbccon.h
 bbccon.o: bbccon.c bbccon.h
 	$(CXX) -Wno-array-bounds -Wno-unused-result -c -Os $< -o $@
 
-bbdata.o: ../../../BBCSDL/src/bbdata_x86_64.nas
-	nasm --prefix _ -f macho64 -s ../../../BBCSDL/src/bbdata_x86_64.nas -o bbdata.o
+bbdata.o: ../../src/bbdata_x86_64.nas
+	nasm --prefix _ -f macho64 -s ../../src/bbdata_x86_64.nas -o bbdata.o
 
 bbcbasic: $(OBJ)
 	$(CXX) $(OBJ) -F/Library/Frameworks -L . \
