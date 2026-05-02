@@ -2736,7 +2736,6 @@ pthread_t hThread = NULL ;
         if ((argc >= 2) && (*argv[1] != '-'))
 		strcpy (szAutoRun, argv[1]) ;
 
-    printf("Autorun is %s\n", szAutoRun);
 	strcpy (szCmdLine, szAutoRun) ;
 
 	if (argc >= 2)
