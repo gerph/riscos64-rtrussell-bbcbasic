@@ -92,6 +92,8 @@ static const signed char keywds[] = {
 	TBGET,'B','G','E','T',' ',
 	TBPUT,'B','P','U','T',' ',
 	TBY,'B','Y',' ',
+	TBEATS,'B','E','A','T','S',' ',
+	TBEAT,'B','E','A','T',' ',
 	TCOLOUR,'C','O','L','O','U','R',
 	TCOLOUR,'C','O','L','O','R',
 	TCALL,'C','A','L','L',
@@ -199,12 +201,14 @@ static const signed char keywds[] = {
 	TSTR,'S','T','R','$',
 	TSTRING,'S','T','R','I','N','G','$','(',
 	TSOUND,'S','O','U','N','D',
+	TSTEREO,'S','T','E','R','E','O',' ',
 	TSTOP,'S','T','O','P',' ',
 	TSUM,'S','U','M',
 	TSWAP,'S','W','A','P',
 	TSYS,'S','Y','S',
 	TTAN,'T','A','N',
 	TTAB,'T','A','B','(',
+	TTEMPO,'T','E','M','P','O',' ',
 	TTHEN,'T','H','E','N',
 	TTIMER,'T','I','M','E',' ',
 	TTINT,'T','I','N','T',
@@ -215,6 +219,8 @@ static const signed char keywds[] = {
 	TUSR,'U','S','R',
 	TVDU,'V','D','U',
 	TVAL,'V','A','L',
+	TVOICES,'V','O','I','C','E','S',' ',
+	TVOICE,'V','O','I','C','E',' ',
 	TVPOS,'V','P','O','S',' ',
 	TWHILE,'W','H','I','L','E',
 	TWHEN,'W','H','E','N',
@@ -574,6 +580,7 @@ void text (const char *txt)
 void listline (signed char *p, int *pindent)
 {
 	int n ;
+	int leftmode ;
 	signed char al = 0 ;
 	char number[7] ;
 	unsigned char mode = BIT0 ; // set left
@@ -603,6 +610,7 @@ void listline (signed char *p, int *pindent)
 	while (*p != 0x0D)
 	    {
 		al = *p++ ;
+		leftmode = mode & BIT0 ;
 		if ((al == '"') && !(mode & 0x60))
 			mode ^= BIT7 ;
 		if (mode & (BIT5 | BIT6 | BIT7))
@@ -629,6 +637,8 @@ void listline (signed char *p, int *pindent)
 				sprintf (number, "%d", lino) ;
 				text (number) ;
 			    }
+			else if ((al == TPOINT) && leftmode)
+				text ("POINT") ;
 			else
 				token (al) ;
 		    }

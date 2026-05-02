@@ -494,6 +494,110 @@ void sound (short chan, signed char ampl, unsigned char pitch, unsigned char dur
 #endif
 }
 
+void sound_tempo_set (int value)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+#endif
+
+	if (((value & 0x3F) <= MAX_TEMPO) && ((value & 0x3F) > 0))
+		tempo = value ;
+#ifdef __riscos
+	err = _swix (Sound_QTempo, _IN(0), value) ;
+	if (err)
+		error (err->errnum, err->errmess) ;
+#endif
+}
+
+int sound_tempo_get (void)
+{
+	return tempo ;
+}
+
+void sound_beats_set (int value)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+
+	err = _swix (Sound_QBeat, _IN(0), value) ;
+	if (err)
+		error (err->errnum, err->errmess) ;
+#else
+	(void) value ;
+#endif
+}
+
+int sound_beat_get (int value)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+	int result ;
+
+	err = _swix (Sound_QBeat, _IN(0) | _OUT(0), value, &result) ;
+	if (err == NULL)
+		return result ;
+	error (err->errnum, err->errmess) ;
+#else
+	(void) value ;
+#endif
+	return 0 ;
+}
+
+void sound_voices_set (int voices)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+
+	err = _swix (Sound_Configure, _IN(0), voices) ;
+	if (err)
+		error (err->errnum, err->errmess) ;
+#else
+	(void) voices ;
+#endif
+}
+
+void sound_stereo_set (int channel, int position)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+
+	err = _swix (Sound_Stereo, _INR(0, 1), channel, position) ;
+	if (err)
+		error (err->errnum, err->errmess) ;
+#else
+	(void) channel ;
+	(void) position ;
+#endif
+}
+
+void sound_voice_set (int channel, int voice)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+
+	err = _swix (Sound_AttachVoice, _INR(0, 1), channel, voice) ;
+	if (err)
+		error (err->errnum, err->errmess) ;
+#else
+	(void) channel ;
+	(void) voice ;
+#endif
+}
+
+void sound_voice_name_set (int channel, char *name)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+
+	err = _swix (Sound_AttachNamedVoice, _INR(0, 1), channel, name) ;
+	if (err)
+		error (err->errnum, err->errmess) ;
+#else
+	(void) channel ;
+	(void) name ;
+#endif
+}
+
 // ENVELOPE N,T,PI1,PI2,PI3,PN1,PN2,PN3,AA,AD,AS,AR,ALA,ALD
 void envel (signed char *env)
 {
@@ -520,8 +624,22 @@ int getmodeno (void)
 // Get nearest palette index:
 int vpoint (int x, int y)
 {
+#ifdef __riscos
+	_kernel_oserror *err ;
+	int colour ;
+	int tint ;
+	int screen ;
+
+	err = _swix (OS_ReadPoint, _INR(0, 1) | _OUTR(2, 4), x, y, &colour, &tint, &screen) ;
+	if (err != NULL)
+		error (err->errnum, err->errmess) ;
+	if (screen != 0)
+		return -1 ;
+	return colour ;
+#else
 	error (255, "Sorry, not implemented") ;
 	return -1 ;
+#endif
 }
 
 int vgetc (int x, int y)
@@ -1425,6 +1543,7 @@ static int bbc_extended_token (int prefix, int token)
 		switch (token)
 		    {
 			case 0x8E: return 0xC6 ; /* SUM */
+			case 0x8F: return TOK_BEAT ; /* BEAT */
 		    }
 	    }
 	else if ((prefix == 0xC7) || (prefix == 0xC8))
@@ -1445,8 +1564,22 @@ static int bbc_extended_token (int prefix, int token)
 			case 0x99: return 0x09 ; /* SYS */
 			case 0x9C: return 0x0A ; /* TINT */
 			case 0x9D: return 0x02 ; /* ELLIPSE */
-			case 0x9F: return 0x0C ; /* INSTALL */
+			case 0x9E: return TOK_BEATS ; /* BEATS */
+			case 0x9F: return (prefix == 0xC7) ? 0x0C : TOK_TEMPO ; /* INSTALL/TEMPO */
+			case 0xA0: return TOK_VOICES ; /* VOICES */
+			case 0xA1: return TOK_VOICE ; /* VOICE */
+			case 0xA2: return TOK_STEREO ; /* STEREO */
 		    }
+	    }
+	return token ;
+}
+
+static int bbc_basic_token (int token)
+{
+	switch (token)
+	    {
+		case 0x7F: return TOK_OTHERWISE ; /* Acorn OTHERWISE */
+		case 0xCC: return TOK_ELSE ; /* Acorn line-start ELSE */
 	    }
 	return token ;
 }
@@ -1512,6 +1645,8 @@ static int convert_bbc_basic (unsigned char *src, int len, unsigned char *dst, i
 				ch = bbc_extended_token (ch, src[body++]) ;
 				body_len-- ;
 			    }
+			else if (!quoted)
+				ch = bbc_basic_token (ch) ;
 			dst[out++] = ch ;
 		    }
 		if ((out - line_start) > 255)
@@ -1537,7 +1672,13 @@ static int rtr_to_bbc_extended_token (int token, unsigned char *dst)
 		case 0x09: dst[0] = 0xC8 ; dst[1] = 0x99 ; return 2 ; /* SYS */
 		case 0x0A: dst[0] = 0xC8 ; dst[1] = 0x9C ; return 2 ; /* TINT */
 		case 0x0B: dst[0] = 0xC7 ; dst[1] = 0x96 ; return 2 ; /* WAIT */
-		case 0x0C: dst[0] = 0x9F ; return 1 ;                 /* INSTALL */
+		case 0x0C: dst[0] = 0xC7 ; dst[1] = 0x9F ; return 2 ; /* INSTALL */
+		case TOK_BEAT: dst[0] = 0xC6 ; dst[1] = 0x8F ; return 2 ;
+		case TOK_BEATS: dst[0] = 0xC8 ; dst[1] = 0x9E ; return 2 ;
+		case TOK_TEMPO: dst[0] = 0xC8 ; dst[1] = 0x9F ; return 2 ;
+		case TOK_VOICES: dst[0] = 0xC8 ; dst[1] = 0xA0 ; return 2 ;
+		case TOK_VOICE: dst[0] = 0xC8 ; dst[1] = 0xA1 ; return 2 ;
+		case TOK_STEREO: dst[0] = 0xC8 ; dst[1] = 0xA2 ; return 2 ;
 		case RTR_TPOINT: dst[0] = 0xC8 ; dst[1] = 0x92 ; return 2 ;
 		case RTR_TSUM: dst[0] = 0xC6 ; dst[1] = 0x8E ; return 2 ;
 		case RTR_TWHILE: dst[0] = 0xC8 ; dst[1] = 0x95 ; return 2 ;

@@ -106,6 +106,12 @@
 #define TOK_RUN          -7
 #define TOK_UNTIL        -3
 #define TOK_EXIT         16
+#define TOK_BEAT         17
+#define TOK_BEATS        18
+#define TOK_TEMPO        19
+#define TOK_VOICES       20
+#define TOK_VOICE        21
+#define TOK_STEREO       22
 
 #define TOKLO          -113   // first token with left and right forms
 #define TOKHI          -109   // last token with left and right forms
@@ -213,4 +219,3 @@ extern const char szNotice[] ;	// Copyright string
 extern int bChanged ;		// Display refresh required
 extern unsigned int platform ;	// OS platform
 extern unsigned int palette[256] ;
-

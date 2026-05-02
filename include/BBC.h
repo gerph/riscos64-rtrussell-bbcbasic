@@ -181,6 +181,12 @@ extern void *libtop;
 #define TPRIVATE 14
 #define TBY	15
 #define TEXIT	16
+#define TBEAT	17
+#define TBEATS	18
+#define TTEMPO	19
+#define TVOICES	20
+#define TVOICE	21
+#define TSTEREO	22
 
 #define FUNTOK	TLINO // first function token
 #define TOKLO	TPTRR

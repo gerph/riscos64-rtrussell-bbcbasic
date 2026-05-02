@@ -94,6 +94,12 @@ void setext (void *, long long) ;	// Set the file size
 long long getext (void *) ;	// Get file length
 void osshut (void *) ;		// Close file(s)
 void osload (char*, void *, unsigned int) ; // Load a file to memory
+void sound_tempo_set (int) ;
+void sound_beats_set (int) ;
+void sound_voices_set (int) ;
+void sound_stereo_set (int, int) ;
+void sound_voice_set (int, int) ;
+void sound_voice_name_set (int, char *) ;
 #ifdef CAN_SET_RTC
 void putims (const char *) ;	// Set real-time-clock
 #endif
@@ -2614,6 +2620,18 @@ VAR xeq (void)
 				}
 				break ;
 
+/*********************************** POINT ************************************/
+
+			case TPOINT:
+				{
+				int x, y ;
+				x = expri () ;
+				comma () ;
+				y = expri () ;
+				plot (69, x, y) ;
+				}
+				break ;
+
 /************************************ CIRCLE ***********************************/
 
 			case TCIRCLE:
@@ -3772,6 +3790,58 @@ VAR xeq (void)
 					unsigned char duration = expri () ;
 					sound (chan, ampl, pitch, duration) ;
 				    }
+				}
+				break ;
+
+/*********************************** TEMPO *************************************/
+
+			case TTEMPO:
+				sound_tempo_set (expri ()) ;
+				break ;
+
+/************************************ BEATS ************************************/
+
+			case TBEATS:
+				sound_beats_set (expri ()) ;
+				break ;
+
+/*********************************** VOICES ************************************/
+
+			case TVOICES:
+				sound_voices_set (expri ()) ;
+				break ;
+
+/*********************************** STEREO ************************************/
+
+			case TSTEREO:
+				{
+				int channel, position ;
+				channel = expri () ;
+				comma () ;
+				position = expri () ;
+				sound_stereo_set (channel, position) ;
+				}
+				break ;
+
+/************************************ VOICE ************************************/
+
+			case TVOICE:
+				{
+				int channel ;
+				channel = expri () ;
+				comma () ;
+				if (nxt () == '"')
+				    {
+					VAR name ;
+					name = exprs () ;
+					if (name.s.l >= ACCSLEN)
+						error (19, NULL) ;
+					memcpy (accs, name.s.p + (char *) zero, name.s.l) ;
+					accs[name.s.l] = 0 ;
+					sound_voice_name_set (channel, accs) ;
+				    }
+				else
+					sound_voice_set (channel, expri ()) ;
 				}
 				break ;
 

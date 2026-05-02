@@ -86,6 +86,8 @@ int vpoint (int, int) ;		// Get palette index or -1
 void getcsr (int*, int*) ;	// Get text cursor (caret) coords
 int vgetc (int, int) ;		// Get character at specified coords
 int oscall (int) ;		// Call an emulated OS function
+int sound_beat_get (int) ;
+int sound_tempo_get (void) ;
 int widths (char *, int) ;	// Get string width in graphics units
 int adval (int) ;		// ADVAL function
 void *osopen (int, char *) ;	// Open a file
@@ -1437,6 +1439,27 @@ VAR item (void)
 			v.i.t = 0 ;
 			v.i.n = y ;
 			}
+			return v ;
+
+/************************************ BEAT *************************************/
+
+		case TBEAT:
+			v.i.t = 0 ;
+			v.i.n = sound_beat_get (0) ;
+			return v ;
+
+/************************************ BEATS ************************************/
+
+		case TBEATS:
+			v.i.t = 0 ;
+			v.i.n = sound_beat_get (-1) ;
+			return v ;
+
+/************************************ TEMPO ************************************/
+
+		case TTEMPO:
+			v.i.t = 0 ;
+			v.i.n = sound_tempo_get () ;
 			return v ;
 
 /************************************ TINT *************************************/
