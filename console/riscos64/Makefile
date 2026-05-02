@@ -10,13 +10,13 @@
 #	__acorn
 #	__arm
 
-TARGET ?= bbcbasic
+TARGET ?= basic
 
 # Version of the C library to use to build
 CLIB_VERSION = 0.25
 CLIB_URL = https://github.com/gerph/riscos64-simple-binaries/releases/download/v${CLIB_VERSION}/RISCOS64-CLib-${CLIB_VERSION}.zip
 
-ALL_TARGETS = bbcbasic
+ALL_TARGETS = basic
 
 
 targetted:
