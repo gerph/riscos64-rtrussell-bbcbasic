@@ -65,7 +65,7 @@ CXX = ${CC}
 CFLAGS += -Wall -I ../../include -I ../../../BBCSDL/include
 
 OBJS = bbmain.o bbexec.o bbeval.o bbasmb.o bbdata.o bbccos.o bbccon.o
-OBJS += riscos.o str.o
+OBJS += riscos.o riscosswi.o str.o
 
 CXX += ${CFLAGS}
 
@@ -89,6 +89,9 @@ bbccon.o: bbccon.c bbccon.h
 
 bbdata.o: ../../src/bbdata_arm_ro64.s
 	${AS} ../../src/bbdata_arm_ro64.s -o bbdata.o
+
+riscosswi.o: riscosswi.s
+	${AS} riscosswi.s -o riscosswi.o
 
 #bbcbasic: $(OBJ)
 #	$(CXX) $(OBJ) -L . -L/usr/include -ldl -lm -lrt -pthread \

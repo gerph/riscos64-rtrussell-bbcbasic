@@ -1668,12 +1668,14 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 	int in = 0 ;
 	unsigned char old_liston ;
 	unsigned short source_line ;
+	unsigned short auto_lino ;
 
 	old_liston = liston ;
 	liston = 0x30 ;
 	*dst = 0 ;
 	load_fail_text[0] = 0 ;
 	source_line = 0 ;
+	auto_lino = 0 ;
 	while (in < len)
 	    {
 		char linebuf[256] ;
@@ -1717,13 +1719,16 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 		set_load_fail_text (accs) ;
 		tmp = accs ;
 		n = 0 ;
-		if (!text_line_number (tmp, &n, &lino))
-		    {
-			load_fail_line = source_line ;
-			liston = old_liston ;
-			return -1 ;
-		    }
-		tmp += n ;
+		if (text_line_number (tmp, &n, &lino))
+			{
+				tmp += n ;
+				auto_lino = lino ;
+			}
+		else
+			{
+				lino = auto_lino + 10 ;
+				auto_lino = lino ;
+			}
 		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
 		n = lexan (tmp, (char *) linebuf + 3, 1) - (char *) linebuf ;
 		if (n > 255)

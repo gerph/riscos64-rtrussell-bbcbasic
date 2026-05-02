@@ -3547,61 +3547,74 @@ VAR xeq (void)
 				while (*esi == ',')
 				    {
 					esi++ ;
-					v = expr () ;
-					if (v.s.t == -1)
+					nxt () ;
+#ifdef __riscos
+					if ((*esi == ',') || (*esi == TTO) || (*esi == 0x0D))
 					    {
-						if ((v.s.l != 0) &&
-							(*(v.s.p + v.s.l + (char *) zero - 1) == 0))
-							parm.i[ni++] = (size_t) (v.s.p + zero) ; // use in-situ
-						else
-						    {
-							int n = (v.s.l + 4) & -4 ;
-							if (n > ((char *)esp-(char *)zero-pfree-STACK_NEEDED))
-								error (0, NULL) ; // 'No room'
-							esp -= n >> 2 ;
-							memcpy ((char *)esp, v.s.p + zero, v.s.l) ;
-							memset ((char *)esp + v.s.l, 0, 1) ;
-							parm.i[ni++] = (size_t) esp ;
-						    }
-#ifdef _WIN32
-						if (nf < 8) nf++ ;
-#endif
-					    }
-					else if (v.i.t == 0)
-					    {
-						parm.i[ni++] = v.i.n ;
+						parm.i[ni++] = 0 ;
 #ifdef _WIN32
 						if (nf < 8) nf++ ;
 #endif
 					    }
 					else
+#endif
 					    {
-						parm.f[nf++] = (double) v.f ;
+						v = expr () ;
+						if (v.s.t == -1)
+						    {
+							if ((v.s.l != 0) &&
+								(*(v.s.p + v.s.l + (char *) zero - 1) == 0))
+								parm.i[ni++] = (size_t) (v.s.p + zero) ; // use in-situ
+							else
+							    {
+								int n = (v.s.l + 4) & -4 ;
+								if (n > ((char *)esp-(char *)zero-pfree-STACK_NEEDED))
+									error (0, NULL) ; // 'No room'
+								esp -= n >> 2 ;
+								memcpy ((char *)esp, v.s.p + zero, v.s.l) ;
+								memset ((char *)esp + v.s.l, 0, 1) ;
+								parm.i[ni++] = (size_t) esp ;
+							    }
+#ifdef _WIN32
+							if (nf < 8) nf++ ;
+#endif
+						    }
+						else if (v.i.t == 0)
+						    {
+							parm.i[ni++] = v.i.n ;
+#ifdef _WIN32
+							if (nf < 8) nf++ ;
+#endif
+						    }
+						else
+						    {
+							parm.f[nf++] = (double) v.f ;
 #ifdef __riscos
-                        /* We just convert these values to an integer */
-                        long long t = v.f ;
-                        parm.i[ni++] = t;
+							/* We just convert these values to an integer */
+							long long t = v.f ;
+							parm.i[ni++] = t;
 #else
 #if defined(__x86_64__) || defined(__aarch64__) || defined(ARMHF)
 #ifdef _WIN32
-						union { double f ; long long i ; } u ;
-						u.f = v.f ;
-						parm.i[ni++] = u.i ;
+							union { double f ; long long i ; } u ;
+							u.f = v.f ;
+							parm.i[ni++] = u.i ;
 #endif
 #else
-						union
-						    {
-							double f ;
-							struct { int l ; int h ; } i ;
-						    } u ;
-						u.f = v.f ;
-						parm.i[ni++] = u.i.l ;
-						parm.i[ni++] = u.i.h ;
+							union
+							    {
+								double f ;
+								struct { int l ; int h ; } i ;
+							    } u ;
+							u.f = v.f ;
+							parm.i[ni++] = u.i.l ;
+							parm.i[ni++] = u.i.h ;
 #endif
 #endif
+						    }
+						if ((ni > 16) || (nf > 8))
+							error (31, NULL) ; // 'Incorrect arguments'
 					    }
-					if ((ni > 16) || (nf > 8))
-						error (31, NULL) ; // 'Incorrect arguments'
 				    }
 
 #ifndef __riscos
@@ -3618,14 +3631,15 @@ VAR xeq (void)
                     struct output_s {
                         unsigned char type;
                         void *ptr;
-                    } output[10] = {0};
+                    } output[11] = {0};
+                    uint32_t flags = 0;
                     if (*esi == TTO)
                         {
                             int regno = 0;
                             do {
                                 esi++ ;
                                 nxt () ;
-                                if (*esi != ',')
+                                if (*esi != ',' && *esi != ';')
                                 {
                                     ptr = getput (&type) ;
                                     //printf("Output r%i is type %i, ptr &%x\n", regno, type, ptr);
@@ -3633,8 +3647,17 @@ VAR xeq (void)
                                     output[regno].ptr = ptr;
                                 }
                                 regno ++;
+                                nxt () ;
                             } while (regno < 10 && *esi == ',');
-                            /* FIXME: Need flags pointer ? */
+                            if (*esi == ';')
+                            {
+                                esi++ ;
+                                nxt () ;
+                                ptr = getput (&type) ;
+                                //printf("Output flags is type %i, ptr &%x\n", type, ptr);
+                                output[10].type = type;
+                                output[10].ptr = ptr;
+                            }
                         }
                     //printf("SWI call &%x\n", (int)func);
                     //for (int i=0; i<10; i++)
@@ -3648,12 +3671,12 @@ VAR xeq (void)
 
                     /* Call SWI */
                     _kernel_oserror *err;
-                    err = _kernel_swi(((int)func) | 0x20000, &regs, &regs);
+                    err = _kernel_swi_flags(((int)func) | 0x20000, &regs, &regs, &flags);
                     if (err && (((int)func) & 0x20000) == 0)
                         error(err->errnum, err->errmess);
 
                     /* Now write values to outputs */
-                    for (int regno=0; regno<10; regno++)
+                    for (int regno=0; regno<11; regno++)
                     {
                         if (output[regno].ptr != NULL)
                         {
@@ -3663,12 +3686,16 @@ VAR xeq (void)
                             {
                                 /* Float value */
                                 v.i.t = 1; /* ? */
-                                v.f = regs.r[regno];
+                                v.f = (regno == 10) ? (flags>>28) : regs.r[regno];
                                 storen(v, output[regno].ptr, type);
                             }
                             else if (type == 136)
                             {
                                 /* String value */
+                                if (regno == 10)
+                                {
+                                    error(31, NULL); /* Incorrect arguments */
+                                }
                                 v.s.t = -1;
                                 v.s.p = ((char *)regs.r[regno]) - (char*)zero;
                                 v.s.l = regs.r[regno] == 0 ? 0 : strlen((char*)regs.r[regno]);
@@ -3677,7 +3704,7 @@ VAR xeq (void)
                             else if (type == 4)
                             {
                                 v.i.t = 0;
-                                v.i.n = regs.r[regno];
+                                v.i.n = (regno == 10) ? (flags>>28) : regs.r[regno];
                                 storen(v, output[regno].ptr, type);
                             }
                         }

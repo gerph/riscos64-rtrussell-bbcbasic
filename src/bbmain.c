@@ -1747,9 +1747,11 @@ static int parse_save_command (char *command, char *name)
 static void load_text_buffer (unsigned char *data, int len, signed char *limit)
 {
 	int pos ;
+	unsigned short auto_lino ;
 
 	memset (vpage + zero, 0, 256) ;
 	pos = 0 ;
+	auto_lino = 0 ;
 	while (pos < len)
 	    {
 		char linebuf[256] ;
@@ -1781,9 +1783,16 @@ static void load_text_buffer (unsigned char *data, int len, signed char *limit)
 		tmp = accs ;
 		n = 0 ;
 		lino = 0 ;
-		if (!text_line_number (tmp, &n, &lino))
-			error (253, "Bad string") ;
-		tmp += n ;
+		if (text_line_number (tmp, &n, &lino))
+		    {
+			tmp += n ;
+			auto_lino = lino ;
+		    }
+		else
+		    {
+			lino = auto_lino + 10 ;
+			auto_lino = lino ;
+		    }
 		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
 		n = lexan (tmp, (char *) linebuf + 3, 1) - (char *) linebuf ;
 		if (n > 255)
