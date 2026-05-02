@@ -1397,8 +1397,25 @@ static int valid_rtr_basic (unsigned char *data, int len)
 		if (data[pos + line_len - 1] != 0x0D)
 			return 0 ;
 		pos += line_len ;
-	    }
+	}
 	return 0 ;
+}
+
+static unsigned short load_fail_line = 0 ;
+static char load_fail_text[64] ;
+
+static void set_load_fail_text (char *src)
+{
+	int i ;
+
+	i = 0 ;
+	while ((i < (int) sizeof (load_fail_text) - 1) && (src[i] != 0) &&
+			(src[i] != 0x0D) && (src[i] != 0x0A))
+	    {
+		load_fail_text[i] = src[i] ;
+		i++ ;
+	    }
+	load_fail_text[i] = 0 ;
 }
 
 static int bbc_extended_token (int prefix, int token)
@@ -1650,10 +1667,13 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 {
 	int in = 0 ;
 	unsigned char old_liston ;
+	unsigned short source_line ;
 
 	old_liston = liston ;
 	liston = 0x30 ;
 	*dst = 0 ;
+	load_fail_text[0] = 0 ;
+	source_line = 0 ;
 	while (in < len)
 	    {
 		char linebuf[256] ;
@@ -1666,6 +1686,7 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 		int line_len ;
 		unsigned short lino ;
 
+		source_line++ ;
 		p = accs ;
 		while (in < len)
 		    {
@@ -1676,11 +1697,13 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 			    {
 				if ((p - accs) >= (ACCSLEN - 2))
 				    {
+					load_fail_line = source_line ;
 					liston = old_liston ;
 					return -1 ;
 				    }
 				if ((ch < 0x09) || ((ch > 0x0D) && (ch < 0x20)))
 				    {
+					load_fail_line = source_line ;
 					liston = old_liston ;
 					return -1 ;
 				    }
@@ -1691,10 +1714,12 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 			continue ;
 		*p++ = 0x0D ;
 		*p = 0 ;
+		set_load_fail_text (accs) ;
 		tmp = accs ;
 		n = 0 ;
 		if (!text_line_number (tmp, &n, &lino))
 		    {
+			load_fail_line = source_line ;
 			liston = old_liston ;
 			return -1 ;
 		    }
@@ -1703,6 +1728,7 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 		n = lexan (tmp, (char *) linebuf + 3, 1) - (char *) linebuf ;
 		if (n > 255)
 		    {
+			load_fail_line = lino ;
 			liston = old_liston ;
 			return -1 ;
 		    }
@@ -1725,6 +1751,7 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 		    {
 			if (((end - prog) + n) > max)
 			    {
+				load_fail_line = lino ;
 				liston = old_liston ;
 				return -1 ;
 			    }
@@ -1779,6 +1806,7 @@ static int load_basic_file (char *name, void *addr, unsigned int max)
 	int name_len ;
 #endif
 
+	load_fail_line = 0 ;
 	file = fopen (name, "rb") ;
 #ifdef __riscos
 	if ((file == NULL) && (strchr (name, '/') == NULL))
@@ -1843,12 +1871,12 @@ static int load_basic_file (char *name, void *addr, unsigned int max)
 		if (valid_rtr_basic (buffer, n))
 			memcpy (addr, buffer, n) ;
 		else
-			n = -1 ;
+			n = -2 ;
 	    }
 	else if (type == 0xFD1)
 	    {
 		converted = convert_text_basic (buffer, n, addr, max) ;
-		n = converted ;
+		n = (converted >= 0) ? converted : -2 ;
 	    }
 	else if (type == 0xFFB)
 	    {
@@ -1858,7 +1886,7 @@ static int load_basic_file (char *name, void *addr, unsigned int max)
 		else if (valid_rtr_basic (buffer, n))
 			memcpy (addr, buffer, n) ;
 		else
-			n = -1 ;
+			n = -2 ;
 	    }
 	else
 	    {
@@ -1873,7 +1901,7 @@ static int load_basic_file (char *name, void *addr, unsigned int max)
 			else if (valid_rtr_basic (buffer, n))
 				memcpy (addr, buffer, n) ;
 			else
-				n = -1 ;
+				n = -2 ;
 		    }
 	    }
 	free (buffer) ;
@@ -2801,7 +2829,19 @@ pthread_t hThread = NULL ;
 	    }
 	else if (*szAutoRun)
 	    {
-		fprintf (stderr, "%s not found\r\n", szAutoRun) ;
+		if (i == -1)
+			fprintf (stderr, "%s not found\r\n", szAutoRun) ;
+		else if (load_fail_line != 0)
+		    {
+			if (load_fail_text[0] != 0)
+				fprintf (stderr, "%s isn't a loadable BASIC file (line %u: %s)\r\n",
+						szAutoRun, load_fail_line, load_fail_text) ;
+			else
+				fprintf (stderr, "%s isn't a loadable BASIC file (line %u)\r\n",
+						szAutoRun, load_fail_line) ;
+		    }
+		else
+			fprintf (stderr, "%s isn't a loadable BASIC file\r\n", szAutoRun) ;
 		return 10 ;
 	    }
 	else
