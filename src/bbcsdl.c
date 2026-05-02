@@ -85,7 +85,7 @@ unsigned int DIRoff = 19 ; // Used by Android x86-32 build
 #define AUDIOLEN 441 * 4
 
 // Performance tuning parameters:
-#define POLLT 2  // Poll for approaching vSync every 2 milliseconds 
+#define POLLT 2  // Poll for approaching vSync every 2 milliseconds
 #define FGDLY 80 // Wait 80 * POLLT ms after returning to foreground
 #define BUSYT 40 // Busy-wait for 40 ms after last user output event
 #define PACER 12 // 12 ms 'processing time' per frame (max. ~75 fps)
@@ -189,7 +189,7 @@ static SDL_Rect backbutton = {0} ;
 static SDL_Texture *buttexture ;
 
 #if defined __EMSCRIPTEN__
-static EM_BOOL Emscripten_HandleFullscreenChange(int eventType, 
+static EM_BOOL Emscripten_HandleFullscreenChange(int eventType,
 		const EmscriptenFullscreenChangeEvent *fullscreenChangeEvent, void *userData)
 {
 	static int oldw, oldh ;
@@ -239,7 +239,7 @@ static void *mymap (uintptr_t size)
 	    {
 		sscanf (line, "%p-%p", &start, &finish) ;
 		start = (void *)((size_t)start & -0x1000) ; // page align (GCC extension)
-		if (start >= (base + size)) 
+		if (start >= (base + size))
 			return base ;
 		base = (void *)(((size_t)finish + 0xFFF) & -0x1000) ; // page align
 	    }
@@ -356,7 +356,7 @@ SDL_Texture *MakeBackButton(SDL_Renderer *renderer)
 {
 	unsigned int *pixels ;
 	int i, pitch ;
-	SDL_Texture *buttexture = SDL_CreateTexture (renderer, SDL_PIXELFORMAT_ABGR8888, 
+	SDL_Texture *buttexture = SDL_CreateTexture (renderer, SDL_PIXELFORMAT_ABGR8888,
 						     SDL_TEXTUREACCESS_STREAMING, 32, 32) ;
 	SDL_LockTexture (buttexture, NULL, (void **)&pixels, &pitch) ;
 	for (i = 0; i < 32 * 32; i++)
@@ -418,7 +418,7 @@ static void CaptureScreen (void)
 		eol = ptr + ((XSCREEN + 7) >> 3) ;
 		while (((--eol) >= ptr) && (eol[0] == ' ')) ;
 		for (i = 0; i < (eol - ptr + 1); i++)
-			tmp[i] = (char) ptr[i] ; /// Needs UCS-2 to UTF-8 conversion!! 
+			tmp[i] = (char) ptr[i] ; /// Needs UCS-2 to UTF-8 conversion!!
 		tmp += (eol - ptr + 1) ;
 		(tmp++)[0] = 0x0D ;
 		(tmp++)[0] = 0x0A ;
@@ -469,7 +469,7 @@ static void ShutDown (void)
 	SDL_WaitThread (Thread, &i) ;
 	SDL_DestroySemaphore (Sema4) ;
 #ifdef MUTEX
-	SDL_DestroyMutex (Mutex) ; 
+	SDL_DestroyMutex (Mutex) ;
 #endif
 #ifndef _EMSCRIPTEN__
 	SDL_RemoveTimer(PollTimerID) ;
@@ -597,7 +597,7 @@ if (platform < 0x2000200)
 #ifdef __EMSCRIPTEN__
 	platform |= 5 ;
 #endif
-#if defined __x86_64__ || defined __aarch64__ 
+#if defined __x86_64__ || defined __aarch64__
 	platform |= 0x40 ;
 #endif
 
@@ -645,7 +645,7 @@ if (SDLNet_Init() == -1)
 	SDL_SetHint (SDL_HINT_RENDER_DRIVER, "opengl") ;
 	SDL_SetHint ("SDL_RENDER_BATCHING", "1") ;
 	SDL_SetHint (SDL_HINT_RENDER_SCALE_QUALITY, "nearest") ;
-	SDL_SetHint ("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1") ; 
+	SDL_SetHint ("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1") ;
 #endif
 
 for (i = 1; i < argc; i++)
@@ -657,8 +657,8 @@ for (i = 1; i < argc; i++)
 	hidden |= (NULL != strstr (argv[i], "-hidden")) ;
 }
 
-window = SDL_CreateWindow("BBCSDL",  SDL_WINDOWPOS_CENTERED,  SDL_WINDOWPOS_CENTERED, 
-				SCREEN_WIDTH, SCREEN_HEIGHT, 
+window = SDL_CreateWindow("BBCSDL",  SDL_WINDOWPOS_CENTERED,  SDL_WINDOWPOS_CENTERED,
+				SCREEN_WIDTH, SCREEN_HEIGHT,
 #ifdef __IPHONEOS__
 				SDL_WINDOW_ALLOW_HIGHDPI |
 #endif
@@ -666,10 +666,10 @@ window = SDL_CreateWindow("BBCSDL",  SDL_WINDOWPOS_CENTERED,  SDL_WINDOWPOS_CENT
 				SDL_WINDOW_BORDERLESS |
 #endif
 				(getenv("SDL_RENDER_DRIVER") ? 0 : SDL_WINDOW_OPENGL) |
-				(fixedsize ? 0 : SDL_WINDOW_RESIZABLE) | 
-				(fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) | 
-				(borderless ? SDL_WINDOW_BORDERLESS : 0) | 
-				(highdpi ? SDL_WINDOW_ALLOW_HIGHDPI : 0) | 
+				(fixedsize ? 0 : SDL_WINDOW_RESIZABLE) |
+				(fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) |
+				(borderless ? SDL_WINDOW_BORDERLESS : 0) |
+				(highdpi ? SDL_WINDOW_ALLOW_HIGHDPI : 0) |
 				(hidden ? SDL_WINDOW_HIDDEN : 0)) ;
 if (window == NULL)
 {
@@ -709,14 +709,14 @@ SDL_GetRendererOutputSize (renderer, &sizex, &sizey) ; // Window may not be the 
 #if defined __ANDROID__ || defined __IPHONEOS__
 {
 	int size = MAX (sizex, sizey) ;
-	SDL_SetRenderTarget(renderer, SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, 
+	SDL_SetRenderTarget(renderer, SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
 				SDL_TEXTUREACCESS_TARGET, MAX(size,XSCREEN), MAX(size,YSCREEN))) ;
 }
 #else
 {
 	SDL_DisplayMode dm ;
 	SDL_GetDesktopDisplayMode (0, &dm) ;
-	SDL_SetRenderTarget(renderer, SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, 
+	SDL_SetRenderTarget(renderer, SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
 				SDL_TEXTUREACCESS_TARGET, MAX(dm.w,XSCREEN), MAX(dm.h,YSCREEN))) ;
 }
 #endif
@@ -759,19 +759,19 @@ buttexture = MakeBackButton (renderer) ;
 #elif defined __APPLE__
 
 	while ((MaximumRAM > DEFAULT_RAM) &&
-			((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM, 
-						PROT_EXEC | PROT_READ | PROT_WRITE, 
+			((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM,
+						PROT_EXEC | PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))) &&
-			((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM, 
-						PROT_READ | PROT_WRITE, 
+			((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM,
+						PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))))
 		MaximumRAM /= 2 ;
 
 #elif defined __EMSCRIPTEN__
 
 	while ((MaximumRAM > DEFAULT_RAM) &&
-			((void*)-1 == (userRAM = mmap ((void *)0, MaximumRAM, 
-						PROT_READ | PROT_WRITE, 
+			((void*)-1 == (userRAM = mmap ((void *)0, MaximumRAM,
+						PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))))
 		MaximumRAM /= 2 ;
 
@@ -785,7 +785,7 @@ buttexture = MakeBackButton (renderer) ;
 	// Now commit the initial amount to physical RAM:
 
 	if (base != NULL)
-		userRAM = mmap (base, MaximumRAM, PROT_EXEC | PROT_READ | PROT_WRITE, 
+		userRAM = mmap (base, MaximumRAM, PROT_EXEC | PROT_READ | PROT_WRITE,
 			    MAP_FIXED | MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0) ;
 
 #endif
@@ -984,7 +984,7 @@ chrmap = (short*) malloc (2 * ((XSCREEN + 7) >> 3) * ((YSCREEN + 7) >> 3)) ;
 
 // Audio buffer should be <= 40 ms (total queued SOUNDs at min. duration)
 // but must be >= 20ms (minimum likely frame rate) because in Emscripten /
-// Web Assembly the browser can only service audio interrupts at frame rate.  
+// Web Assembly the browser can only service audio interrupts at frame rate.
 SDL_memset(&want, 0, sizeof(want)) ;
 want.freq = 44100 ;
 want.format = AUDIO_S16LSB ;
@@ -1124,7 +1124,7 @@ static int maintick (void)
 		caret.y = (texty - offsety + cursa) * yscale + DestRect.y ;
 		if (cursx) caret.w = cursx * scale ; else caret.w = charx * scale ;
 		caret.h = (cursb - cursa) * yscale ;
-		if (caret.h < 0) caret.h = 0 ; 
+		if (caret.h < 0) caret.h = 0 ;
 
 		SDL_SetRenderTarget(renderer, NULL) ;
 		SDL_SetRenderDrawColor (renderer, 0, 0, 0, 255) ;
@@ -1321,7 +1321,7 @@ static int maintick (void)
 				case EVT_MOUSETO :
 				{
 				int x, y ;
-				x = (((((size_t)ev.user.data1 + origx) >> 1) - offsetx) 
+				x = (((((size_t)ev.user.data1 + origx) >> 1) - offsetx)
 						* DestRect.w / sizex) + DestRect.x ;
 				y = ((~((((size_t)ev.user.data2 + origy) >> 1) - sizey) - offsety)
 						* DestRect.h / sizey) + DestRect.y ;
@@ -1659,7 +1659,7 @@ static int maintick (void)
 
 		case SDL_DROPFILE:
 		case SDL_DROPTEXT:
-			if (systrp && (sysflg & 8)) 
+			if (systrp && (sysflg & 8))
 			{
 				int wparam = ((intptr_t) ev.drop.file) & 0x0FFFFFFFFUL ;
 				int lparam = ((intptr_t) ev.drop.file) / 0x100000000UL ;
@@ -1709,7 +1709,7 @@ static int maintick (void)
 			if (siztrp)
 			{
 				// Signal 'restored from background'
-				putevt (siztrp, WM_SIZE, 0, (winy << 16) | winx) ; 
+				putevt (siztrp, WM_SIZE, 0, (winy << 16) | winx) ;
 				flags |= ALERT ;
 			}
 			break ;
@@ -1720,7 +1720,7 @@ static int maintick (void)
 				int w, h ;
 				SDL_Texture **p, *t = SDL_GetRenderTarget (renderer) ;
 				SDL_GL_GetDrawableSize (window, &w, &h) ;
-				SDL_SetRenderTarget(renderer, SDL_CreateTexture(renderer, 
+				SDL_SetRenderTarget(renderer, SDL_CreateTexture(renderer,
 					SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET,
 					MAX(MAX(w,h),XSCREEN), MAX(MAX(w,h),YSCREEN))) ;
 				if (t != NULL) SDL_DestroyTexture (t) ;
@@ -1734,7 +1734,7 @@ static int maintick (void)
 				if (siztrp)
 					{
 						// Signal 'render device/targets reset'
-						putevt (siztrp, WM_SIZE, -1, (h << 16) | w) ; 
+						putevt (siztrp, WM_SIZE, -1, (h << 16) | w) ;
 						flags |= ALERT ;
 					}
 			}

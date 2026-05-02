@@ -93,7 +93,7 @@ static int anydh (short *sl)
 	for (col = 0; col < 40; col++)
 		if ((*sl++ & 0x7F) == 13)
 			return 1 ;
-	return 0 ; 
+	return 0 ;
 }
 
 static int find7 (short *sl)
@@ -324,7 +324,7 @@ static short char7 (short *pc, unsigned char *pattr, unsigned char *pmode, char 
 			}
 			else
 			{				// Set bit (or nothing)
-				mode |= ((al << 1) & 0xF0) ; 
+				mode |= ((al << 1) & 0xF0) ;
 				attr |= (al & 0x80) ;	// flashing
 			}
 
@@ -480,7 +480,7 @@ static void update7 (unsigned char flag)
 			short atch = char7 (pc, &attr, &mode, &held) ;
 			sticky |= mode ;
 			if ((atch & 0x8000) || (sticky & BIT0))
-				outch7 (atch & 0xFF, atch >> 8, mode, xpos, ypos) ; 
+				outch7 (atch & 0xFF, atch >> 8, mode, xpos, ypos) ;
 			pc++ ;
 			xpos += CHARX ;
 		}

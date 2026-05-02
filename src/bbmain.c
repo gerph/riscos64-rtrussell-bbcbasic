@@ -24,10 +24,13 @@ void reset (void) ;		// Prepare for reporting an error
 void faterr (const char *) ;	// Report a 'fatal' error message
 void trap (void) ;		// Test for ESCape
 void osload (char*, void*, unsigned int) ; // Load a file to memory
-void ossave (char*, void*, unsigned int) ; // Save a file from memory
-int osopen (int, char *) ;	// Open a file
-unsigned char osbget (int, int*) ; // Read a byte from a file
-void osshut (int) ;		// Close file(s)
+void ossave (char*, void*, unsigned int, int) ; // Save a file from memory
+void *osopen (int, char *) ;	// Open a file
+unsigned char osbget (void *, int*) ; // Read a byte from a file
+void osbput (void *, unsigned char) ; // Write a byte to a file
+void osshut (void *) ;		// Close file(s)
+int osreadfile (char *, unsigned char **) ; // Read a file into memory
+void osfiletype (char *, int) ;	// Set the file type
 
 // Routines in bbccli:
 void oscli (char*) ;            // Command Line Interface
@@ -57,6 +60,8 @@ heapptr *esp ;			// Stack pointer
 void *libtop ;			// For stack overflow checking
 #endif
 
+static void *outchan = NULL ;
+
 // List of immediate mode commands:
 
 static const signed char comnds[] = {
@@ -68,6 +73,8 @@ static const signed char comnds[] = {
 	0x1D,'N','E','W',
 	0x1E,'R','E','N','U','M','B','E','R',
 	0x1F,'S','A','V','E',
+	0x16,'T','E','X','T','L','O','A','D',
+	0x17,'T','E','X','T','S','A','V','E',
 	0x00,0x7F } ;
 	
 // List of token values and associated keywords.
@@ -294,7 +301,7 @@ static signed char list2[] = {TTHEN, TELSE, TREPEAT, TERROR, TCLOSE, TMOUSE, TMO
 int range0 (char c)
 {
 	return (((c >= '_') && (c <= '{')) ||
-	        ((c >= '@') && (c <= 'Z')) || 
+	        ((c >= '@') && (c <= 'Z')) ||
 	        ((c >= '0') && (c <= '9')) ||
 		((c >= '#') && (c <= '&')) ||
 	         (c == '(') || (c == '.')) ;
@@ -368,7 +375,7 @@ signed char *search (signed char *edx, signed char token)
 		edx += ll ;
 	if (ll)
 		return edx + 3 ;
-	return NULL ; 
+	return NULL ;
 }
 
 // Encode line number into pseudo binary form.
@@ -426,13 +433,16 @@ static unsigned short extract_lineno(char *str, int *nread, unsigned short defli
 {
     unsigned long llino = deflino;
 #ifdef __riscos
+    char *start = str;
+    while ((*str == ' ') || (*str == '\t'))
+        str++;
     if (*str >= '0' && *str <= '9') /* avoid unimplemented scanf */
     {
         char *end = str;
         llino = strtol(str, &end, 10);
         if (end == str)
             llino = deflino;
-        *nread = end - str;
+        *nread = end - start;
     }
     return llino;
 #else
@@ -508,10 +518,20 @@ char *lexan (char *esi, char *ebx, unsigned char mode)
 
 void crlf (void) ;
 
+static void outbyte (unsigned char al)
+{
+	if (outchan != NULL)
+		osbput (outchan, al) ;
+	else
+		oswrch (al) ;
+}
+
 // Output a character:
 void outchr (unsigned char al)
 {
-	oswrch (al) ;
+	outbyte (al) ;
+	if (outchan != NULL)
+		return ;
 	if (al == 0x0D) vcount = 0 ;
 	if (al >= ' ')
 	    {
@@ -566,7 +586,7 @@ void listline (signed char *p, int *pindent)
 	p += 2 ;
 
 	if (lstopt & 1)
-		oswrch (32) ;
+		outchr (32) ;
 
 	if (strchr ("\355\375\316\315\213\311\314", *p))
 		*pindent -= 1 ;
@@ -574,7 +594,7 @@ void listline (signed char *p, int *pindent)
 		*pindent -= 2 ;
 	if (lstopt & 2)
 		for (n = 0; n < *pindent * 2; n++)
-			oswrch (' ') ;
+			outchr (' ') ;
 	if (strchr ("\343\365\307\213\311\314", *p))
 		*pindent += 1 ;
 	if (*p == TCASE)
@@ -586,7 +606,7 @@ void listline (signed char *p, int *pindent)
 		if ((al == '"') && !(mode & 0x60))
 			mode ^= BIT7 ;
 		if (mode & (BIT5 | BIT6 | BIT7))
-			oswrch (al) ;
+			outchr (al) ;
 		else
 		    {
 			if ((al == '*') && (mode & BIT0))
@@ -674,7 +694,7 @@ void clear (void)
 	pfree = lomem + 4 * fastvars ;
 	memset (dynvar, 0, 4 * (54 + 2)) ;
 	memset (flist, 0, sizeof(void *) * 33 + 8) ;
-        // link00 is a non-aligned 32-bit word 
+        // link00 is a non-aligned 32-bit word
         for(i=0; i<4; i++)
             ((volatile char *)&link00)[i]=0;
 }
@@ -730,7 +750,7 @@ signed char * findl (unsigned int edx)
 	    }
 	edx &= 0xFFFF ;
 	while (edx > SLOAD(ebx + 1))
-		ebx += (int)*(unsigned char *)ebx ; 
+		ebx += (int)*(unsigned char *)ebx ;
 	if (edx == SLOAD(ebx + 1))
 		return ebx ;
 	return NULL ;
@@ -784,7 +804,7 @@ char * allocs (unsigned int *ps, int len)
 
 	if (old == new)
 	    {
-		return ULOAD(ps) + (char *) zero ; 
+		return ULOAD(ps) + (char *) zero ;
 	    }
 
 	size = ((1 << new) - 1) ; // new allocation
@@ -799,7 +819,7 @@ char * allocs (unsigned int *ps, int len)
 		head->next = flist[old] ;
 		flist[old] = head ; 	  // insert into 'old' list
 		addr = head->data ;
-		head->data = ULOAD(ps) + (char *) zero ; 
+		head->data = ULOAD(ps) + (char *) zero ;
 		USTORE(ps, addr - (char *) zero) ;
 		return addr ;
 	    }
@@ -823,7 +843,7 @@ char * allocs (unsigned int *ps, int len)
 	    {
 		if (flist[0]) // spare node available?
 		    {
-			head = flist[0] ; 
+			head = flist[0] ;
 			flist[0] = head->next ;
 		    }
 		else
@@ -850,7 +870,7 @@ char * allocs (unsigned int *ps, int len)
 // Allocate memory for a temporary string:
 //  For lengths < ACCSLEN use the string accumulator
 //  For lengths >= ACCSLEN allocate from the heap
-char *alloct (int len) 
+char *alloct (int len)
 {
 	if (len < ACCSLEN)
 		return accs ;
@@ -923,7 +943,7 @@ int arrlen (void **pebx)
 	    }
 	if (dims == 0) *pebx = ebx ; else *pebx = VLOAD(ebx) ;
 	return edx ;
-} 
+}
 
 // Process array subscripts
 // Returns offset into array data
@@ -996,12 +1016,12 @@ static unsigned int getsub (void **pebx, unsigned char *ptype)
 // Make struct.array&() look like a NUL-terminated string:
 static unsigned int getsbs (void *ebx, unsigned char *ptype)
 {
-	if (nxt () == ')') 
+	if (nxt () == ')')
 	    {
 		if (*ptype != 1)
 			error (15, NULL) ;
 		esi++ ; // skip )
-		*ptype = 130 ; 
+		*ptype = 130 ;
 		return 0 ;
 	    }
 	return getsub (&ebx, ptype) ;
@@ -1014,7 +1034,7 @@ static unsigned int getsbs (void *ebx, unsigned char *ptype)
 //            4 = signed integer
 //            8 = 64-bit floating point
 //           10 = 80-bit floating point
-//           16 = structure (64-bit) 
+//           16 = structure (64-bit)
 //           24 = structure (32-bit)
 //           40 = 64-bit signed integer
 //          136 = (moveable) string
@@ -1026,7 +1046,7 @@ void *create (unsigned char **pedi, unsigned char *ptype)
 
 	while (range1 (al = *esi++))
 		*edi++ = al ;
-	switch (al) 
+	switch (al)
 	    {
 		case '%':
 			if (*esi == al)
@@ -1103,7 +1123,7 @@ void * putdef (void *ebx)
 	unsigned char type ;
 	unsigned char *edi = pfree + (unsigned char *) zero ;
 
-	USTORE(edi, ULOAD(ebx)) ; 
+	USTORE(edi, ULOAD(ebx)) ;
 	USTORE(ebx, edi - (unsigned char *) zero) ;
 	edi += 4 ;
 
@@ -1140,7 +1160,7 @@ static void *scanll (heapptr *base, signed char *edi)
 		    ((al == 0) && (*esi != '%') && (*esi != '(') && !range1(*(esi-1))) || // PRINT a#b
 		    ((al == '{') && (*++edi == 0) && (*esi == '.')) || // structure member
 		    ((al == '%') && (base == NULL) && (*(esi-1) == '%') && (*esi != '(') && (*++edi == 0)) ||
-		    ((al == '%') && (base == NULL) && (*(esi-1) == '%') && (*esi == '(') && 
+		    ((al == '%') && (base == NULL) && (*(esi-1) == '%') && (*esi == '(') &&
 						(*++edi == '(') && (*++edi == 0)))
 		    {
 			if (base && prev && ((this - zero) != *base))
@@ -1234,7 +1254,7 @@ static unsigned char getype (char *ptr)
 			return 136 ;
 
 		case '{':
-			return STYPE ; 
+			return STYPE ;
 
 		case '&':
 			return 1 ;
@@ -1400,13 +1420,13 @@ void * getvar (unsigned char *ptype)
 				signed char *edx = VLOAD(ebx) ; // template pointer
 				if (edx == NULL)
 					error (26, NULL); // 'No such variable'
-				esi++ ; 
+				esi++ ;
 				edx += 4 ; 		    // skip size record
 				ebx = scanll (NULL, edx) ;
 				if (ebx == NULL)
 					error (26, NULL); // 'No such variable'
 				*ptype = getype (ebx) ;
-				if (*ptype & BIT4) 
+				if (*ptype & BIT4)
 				    {
 					ebp += ILOAD((int *)ebx + STRIDE) ;  // data pointer
 					continue ; // recurse into nested structure
@@ -1544,7 +1564,7 @@ static void fixup (signed char *ptr, int nlines, unsigned short start, unsigned 
 	while ((c = *ptr++) != 0x0D)
 	    {
 		if (c == '"') quote = !quote ;
-		if ((c == TLINO) && !quote) 
+		if ((c == TLINO) && !quote)
 		    {
 			int i ;
 			unsigned char ah = *(unsigned char *)ptr++ ;
@@ -1564,7 +1584,239 @@ static void fixup (signed char *ptr, int nlines, unsigned short start, unsigned 
 				text (accs) ;
 			    }
 		    }
+	}
+}
+
+static int save_format_name (char *name, int len)
+{
+	if ((len == 3) &&
+		((name[0] == 'R') || (name[0] == 'r')) &&
+		((name[1] == 'T') || (name[1] == 't')) &&
+		((name[2] == 'R') || (name[2] == 'r')))
+		return 1 ;
+	if ((len == 5) &&
+		((name[0] == 'A') || (name[0] == 'a')) &&
+		((name[1] == 'C') || (name[1] == 'c')) &&
+		((name[2] == 'O') || (name[2] == 'o')) &&
+		((name[3] == 'R') || (name[3] == 'r')) &&
+		((name[4] == 'N') || (name[4] == 'n')))
+		return 0 ;
+	error (253, "Bad string") ;
+	return 0 ;
+}
+
+static void infer_save_filename (char *name)
+{
+	signed char *line ;
+	signed char *p ;
+	char *q ;
+
+	line = vpage + (signed char *) zero ;
+	if (*line == 0)
+		error (253, "Bad string") ;
+	p = line + 3 ;
+	if (*p++ != TREM)
+		error (253, "Bad string") ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	if (*p++ != '>')
+		error (253, "Bad string") ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+
+	q = name ;
+	while ((*p != 0) && (*p != 0x0D))
+	    {
+		if ((q - name) >= (ACCSLEN - 1))
+			error (19, NULL) ;
+		*q++ = *p++ ;
 	    }
+	while ((q > name) && ((q[-1] == ' ') || (q[-1] == '\t')))
+		q-- ;
+	*q = 0 ;
+	if (q == name)
+		error (253, "Bad string") ;
+}
+
+static char *parse_filename (char *command, char *name)
+{
+	char *p ;
+	char *q ;
+
+	p = command ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	q = name ;
+	if (*p == '"')
+	    {
+		p++ ;
+		while ((*p != 0) && (*p != 0x0D) && (*p != '"'))
+		    {
+			if ((q - name) >= (ACCSLEN - 1))
+				error (19, NULL) ;
+			*q++ = *p++ ;
+		    }
+		if (*p != '"')
+			error (16, NULL) ;
+		p++ ;
+	    }
+	else
+	    {
+		while ((*p != 0) && (*p != 0x0D) && (*p != ','))
+		    {
+			if ((q - name) >= (ACCSLEN - 1))
+				error (19, NULL) ;
+			*q++ = *p++ ;
+		    }
+		while ((q > name) && ((q[-1] == ' ') || (q[-1] == '\t')))
+			q-- ;
+	    }
+	*q = 0 ;
+	if (q == name)
+		error (253, "Bad string") ;
+	return p ;
+}
+
+static void parse_text_command (char *command, char *name)
+{
+	char *p = parse_filename (command, name) ;
+
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	if ((*p != 0) && (*p != 0x0D))
+		error (16, NULL) ;
+}
+
+static int parse_save_command (char *command, char *name)
+{
+	char *p ;
+	char *fmt ;
+	int len ;
+	int format ;
+
+	p = command ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	if ((*p == 0) || (*p == 0x0D))
+	    {
+		infer_save_filename (name) ;
+		return 0 ;
+	    }
+	p = parse_filename (command, name) ;
+	format = 0 ;
+	while ((*p == ' ') || (*p == '\t')) p++ ;
+	if (*p == ',')
+	    {
+		p++ ;
+		while ((*p == ' ') || (*p == '\t')) p++ ;
+		if (*p != '"')
+			error (16, NULL) ;
+		p++ ;
+		fmt = p ;
+		len = 0 ;
+		while ((*p != 0) && (*p != 0x0D) && (*p != '"'))
+		    {
+			p++ ;
+			len++ ;
+		    }
+		if (*p != '"')
+			error (16, NULL) ;
+		format = save_format_name (fmt, len) ;
+		p++ ;
+		while ((*p == ' ') || (*p == '\t')) p++ ;
+	    }
+	if ((*p != 0) && (*p != 0x0D))
+		error (16, NULL) ;
+	return format ;
+}
+
+static void load_text_buffer (unsigned char *data, int len, signed char *limit)
+{
+	signed char *dest ;
+	int pos ;
+	unsigned short lino ;
+
+	memset (vpage + zero, 0, 256) ;
+	dest = vpage + (signed char *) zero ;
+	pos = 0 ;
+	lino = 0 ;
+	while (pos < len)
+	    {
+		char *p ;
+		char *tmp ;
+		int n ;
+
+		p = accs ;
+		while (pos < len)
+		    {
+			unsigned char ch = data[pos++] ;
+			if (ch == 0x0A)
+				break ;
+			if (ch != 0x0D)
+			    {
+				if ((p - accs) >= (ACCSLEN - 2))
+					error (19, NULL) ;
+				*p++ = ch ;
+			    }
+		    }
+		*p++ = 0x0D ;
+		*p = 0 ;
+
+		tmp = accs ;
+		lino++ ;
+		n = 0 ;
+		lino = extract_lineno (tmp, &n, lino) ;
+		tmp += n ;
+		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
+		n = lexan (tmp, (char *) dest + 3, 1) - (char *) dest ;
+		if (n > 255)
+			error (19, NULL) ;
+		if ((dest + n) >= limit)
+			error (0, NULL) ;
+		*dest = n ;
+		SSTORE(dest + 1, lino) ;
+		dest += n ;
+	    }
+	*dest = 0 ;
+	clear () ;
+}
+
+static void load_text_file (char *name, signed char *limit)
+{
+	unsigned char *data ;
+	int len ;
+
+	data = NULL ;
+	len = osreadfile (name, &data) ;
+	if (len < 0)
+		error (214, "File or path not found") ;
+	load_text_buffer (data, len, limit) ;
+	free (data) ;
+}
+
+static void save_text_file (char *name)
+{
+	signed char *line ;
+	void *file ;
+	void *oldout ;
+	int oldwidth ;
+	int indent ;
+
+	file = osopen (1, name) ;
+	if (file == NULL)
+		error (214, "Couldn't create file") ;
+	oldout = outchan ;
+	oldwidth = vwidth ;
+	outchan = file ;
+	vwidth = 0 ;
+	line = vpage + (signed char *) zero ;
+	indent = 0 ;
+	while (*line)
+	    {
+		trap () ;
+		listline (line + 1, &indent) ;
+		outchr (0x0A) ;
+		line += *(unsigned char *)line ;
+	    }
+	outchan = oldout ;
+	vwidth = oldwidth ;
+	osshut (file) ;
+	osfiletype (name, 0xFD1) ;
 }
 
 // Main interpreter entry point:
@@ -1594,7 +1846,7 @@ int basic (void *ecx, void *edx, void *prompt)
 	libtop = edx ;
 #endif
 	errcode = setjmp (env) ; // In case of 'Bad program'
-	if (errcode == 0) clear () ; 
+	if (errcode == 0) clear () ;
 	datptr = search (vpage + (signed char *) zero, TDATA) - (signed char *) zero ;
 
 	esi = vpage + 3 + (signed char *) zero ;
@@ -1618,7 +1870,7 @@ int basic (void *ecx, void *edx, void *prompt)
 		else if (errcode == 256)
 		    {
 			if (prompt == (void *) -1)
-				return (errcode) ;
+				return 0 ;
 			prompt = (void *) 1 ;
 		    }
 		else
@@ -1686,7 +1938,7 @@ int basic (void *ecx, void *edx, void *prompt)
 			n = strlen (buff) + 3 ;
 			if (n > 255) error (19, NULL) ; // 'String too long'
 			while (lino > SLOAD(tmp + 1))
-				tmp += (int)*(unsigned char *)tmp ; 
+				tmp += (int)*(unsigned char *)tmp ;
 			if (lino == SLOAD(tmp + 1))
 				memmove (tmp, tmp + *(unsigned char *)tmp,
 				gettop (vpage + zero, NULL) - tmp + 3 - *(unsigned char *)tmp) ;
@@ -1769,7 +2021,7 @@ int basic (void *ecx, void *edx, void *prompt)
 					tmp = strchr (buff, TIF) ;
 					while ((tmp != NULL) && (*(++tmp) == ' ')) ;
 					while (*esi && (SLOAD(esi + 1) < lo))
-						esi += (int)*(unsigned char *)esi ; 
+						esi += (int)*(unsigned char *)esi ;
 					while (*esi && (SLOAD(esi + 1) <= hi))
 					    {
 						trap () ;
@@ -1789,40 +2041,15 @@ int basic (void *ecx, void *edx, void *prompt)
 					esi = vpage + (signed char *) zero ;
 					while (*esi)
 					    {
-						esi += (int)*(unsigned char *)esi ; 
+						esi += (int)*(unsigned char *)esi ;
 						if (*(esi-1) != 0x0D) break ;
 					    }
 					if (*(esi-1) != 0x0D)
-					    {
-						int eof = 0 ;
-						int file = osopen (0, tmp) ;
-						esi = vpage + (signed char *) zero ;
-						lino = 0 ;
-						while (1)
-						    {
-							tmp = accs ; n = ACCSLEN-1 ;
-							do *tmp = osbget (file, &eof) ;
-							while (!eof && --n && (*tmp++ != 0x0A)) ;
-							if (eof || (n <= 0)) break ;
-							*(tmp - 1) = 0x0D ; *tmp = 0 ;
-							tmp = accs ; lino++ ; n = 0 ;
-                            lino = extract_lineno(tmp, &n, lino);
-							tmp += n ;
-							while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
-							n = lexan (tmp, (char *) esi + 3, 1)
-								- (char *) esi ;
-							if (n > 255) break ;
-							*esi = n ;
-							SSTORE(esi + 1, lino) ;
-							esi += n ;
-						    }
-						osshut (file) ;
-						*esi = 0 ;
-					    }
+						load_text_file (tmp, (signed char *)esp - STACK_NEEDED) ;
 					clear () ;
 					break ;
 
-				case 0x1D: // NEW 
+				case 0x1D: // NEW
 					*(signed char *)(vpage + zero) = 0 ;
 					break ;
 
@@ -1836,12 +2063,12 @@ int basic (void *ecx, void *edx, void *prompt)
 					n = 0 ;
 					while (*esi)
 					    {
-						SSTORE(lomem + zero + 2*n, 
+						SSTORE(lomem + zero + 2*n,
 							SLOAD(esi + 1)) ;
 						esi += *(unsigned char *)esi ;
 						n++ ;
 					    }
-					if ((lo + n*hi - hi) > 65535) error (20, NULL) ; 
+					if ((lo + n*hi - hi) > 65535) error (20, NULL) ;
 					esi = vpage + (signed char *) zero ;
 					lino = lo ;
 					while (*esi)
@@ -1856,9 +2083,23 @@ int basic (void *ecx, void *edx, void *prompt)
 					break ;
 
 				case 0x1F: // SAVE
+				    {
+					int format = parse_save_command (tmp, buff) ;
 					clear () ;
-					ossave (tmp, vpage + zero, gettop (vpage + zero, NULL) -
-						(signed char *) (vpage + zero) + 3) ;
+					ossave (buff, vpage + zero, gettop (vpage + zero, NULL) -
+						(signed char *) (vpage + zero) + 3, format) ;
+					break ;
+				    }
+
+				case 0x16: // TEXTLOAD
+					parse_text_command (tmp, buff) ;
+					load_text_file (buff, (signed char *)esp - STACK_NEEDED) ;
+					break ;
+
+				case 0x17: // TEXTSAVE
+					parse_text_command (tmp, buff) ;
+					clear () ;
+					save_text_file (buff) ;
 					break ;
 
 				default:

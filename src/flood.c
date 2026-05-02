@@ -7,10 +7,10 @@
 // All rights reserved.
 //
 // This code may be used in compiled form in any way you desire. This
-// file may be redistributed unmodified by any means PROVIDING it is 
-// not sold for profit without the authors written consent, and 
-// providing that this notice and the authors name is included. If 
-// the source code in this file is used in any commercial application 
+// file may be redistributed unmodified by any means PROVIDING it is
+// not sold for profit without the authors written consent, and
+// providing that this notice and the authors name is included. If
+// the source code in this file is used in any commercial application
 // then a simple email would be nice.
 //
 // Warranties and Disclaimers:
@@ -43,7 +43,7 @@
 //----------------------------------------------------------------------------
 //
 
-#include <stdlib.h> 
+#include <stdlib.h>
 #include "SDL2_gfxPrimitives.h"
 
 // Doubly-linked-list node:
@@ -70,7 +70,7 @@ static int		bXSortOn ;
 static void FreeList(void)
 {
 	HLINE_NODE *pNext ;
-	while (pFreeList) 
+	while (pFreeList)
 	{
 		pNext = pFreeList->pNext ;
 	  	free(pFreeList) ;
@@ -117,9 +117,9 @@ static void PushLine(int x1, int x2, int y, int dy)
 		 * be sorted from left to right.
 		 */
 		HLINE_NODE *pThis,*pPrev=(HLINE_NODE*)0 ;
-		for (pThis=pLineList ;pThis ;pThis=pThis->pNext) 
+		for (pThis=pLineList ;pThis ;pThis=pThis->pNext)
 		{
-			if (x1 <= pThis->x1) 
+			if (x1 <= pThis->x1)
 				break ;
 			pPrev = pThis ;
 		}
@@ -128,14 +128,14 @@ static void PushLine(int x1, int x2, int y, int dy)
 			pNew->pNext = pPrev->pNext ;
 			pNew->pPrev = pPrev ;
 			pPrev->pNext = pNew ;
-			if (pNew->pNext) 
+			if (pNew->pNext)
 				pNew->pNext->pPrev = pNew ;
 		}
 		else
 		{
 			pNew->pNext = pLineList ;
 			pNew->pPrev = (HLINE_NODE*)0 ;
-			if (pNew->pNext) 
+			if (pNew->pNext)
 				pNew->pNext->pPrev = pNew ;
 			pLineList = pNew ;
 		}
@@ -168,7 +168,7 @@ static void PopLine(int *x1, int *x2, int *y, int *dy)
 		if (pThis)
 		{
 			pPrev->pNext = pThis->pNext ;
-			if (pPrev->pNext) 
+			if (pPrev->pNext)
 				pPrev->pNext->pPrev = pPrev ;
 			*x1 = pThis->x1 ;
 			*x2 = pThis->x2 ;
@@ -184,7 +184,7 @@ static void PopLine(int *x1, int *x2, int *y, int *dy)
 			*dy = pLineList->dy ;
 			pThis = pLineList ;
 			pLineList = pLineList->pNext ;
-			if (pLineList) 
+			if (pLineList)
 				pLineList->pPrev = (HLINE_NODE*)0 ;
 		}
 
@@ -207,7 +207,7 @@ static void PopLine(int *x1, int *x2, int *y, int *dy)
 static void PushVisitedLine(int x1, int x2, int y)
 {
 	HLINE_NODE *pNew = pFreeList ;
-	if (pNew) 
+	if (pNew)
 		pFreeList = pFreeList->pNext ;
 	else
 		pNew = (HLINE_NODE*) malloc (sizeof(HLINE_NODE)) ;
@@ -240,13 +240,13 @@ static HLINE_NODE* FindNextLine(int x1,int x2,int y)
 {
 	static HLINE_NODE *pFindNext ;
 	HLINE_NODE *pThis ;
-	if (!pFindNext) 
+	if (!pFindNext)
 		pFindNext = pLineList ;
 	for (pThis=pFindNext ;pThis ;pThis=pThis->pNext)
 	{
 		if ((pThis->y+pThis->dy) == y)
 		{
-			if (x1 < pThis->x1 && pThis->x1 <= x2) 
+			if (x1 < pThis->x1 && pThis->x1 <= x2)
 			{
 				pFindNext = pThis->pNext ;
 				return pThis ;
@@ -267,14 +267,14 @@ static void PopThis(HLINE_NODE *pThis)
 		{
 			HLINE_NODE *pPrev = pThis->pPrev ;
 			pPrev->pNext = pThis->pNext ;
-			if (pPrev->pNext) 
+			if (pPrev->pNext)
 				pPrev->pNext->pPrev = pPrev ;
 		}
 		/* Remove pThis from start of list */
 		else
 		{
 			pLineList = pLineList->pNext ;
-			if (pLineList) 
+			if (pLineList)
 				pLineList->pPrev = (HLINE_NODE*)0 ;
 		}
 		pThis->pNext = pFreeList ;
@@ -331,22 +331,22 @@ static void PushOpposite(int OldX1,int OldX2,int x1,int x2,int y,int dy)
 	if (!pFind)
 	{
 		/* push cliped left ends */
-		if (x1 < --OldX1) 
+		if (x1 < --OldX1)
 			PushLine(x1,--OldX1,y,-dy) ;
-		if (x2 > ++OldX2) 
+		if (x2 > ++OldX2)
 			PushLine(++OldX2,x2,y,-dy) ;
 	}
 	else
 	{
 		/* push cliped left */
-		if (x1 < --OldX1) 
+		if (x1 < --OldX1)
 			PushLine(x1,--OldX1,y,-dy) ;
 		/* set test value for right cliping */
 		OldX1 = x2+1 ;
 		do
 		{
 			/* push valid line only */
-			if (++OldX2 < pFind->x1-2) 
+			if (++OldX2 < pFind->x1-2)
 				PushLine(++OldX2,pFind->x1-2,y,-dy) ;
 			OldX2 = pFind->x2 ;
 			/* clip right end if needed */
@@ -384,7 +384,7 @@ static void PushOpposite(int OldX1,int OldX2,int x1,int x2,int y,int dy)
 		 * +-----------------+    +-----------------+
 		 *
 		 */
-		if (++OldX2 < x2) 
+		if (++OldX2 < x2)
 			PushLine(OldX2,x2,y,-dy) ;
 	}
 	PushVisitedLine(x1,x2,y) ;
@@ -394,7 +394,7 @@ static void PushOpposite(int OldX1,int OldX2,int x1,int x2,int y,int dy)
 static void DrawHorizontalLine(unsigned int *pBitmap, int x1, int x2, int y, int w, unsigned int dwValue)
 {
 	unsigned int *p = &pBitmap[x1 + w*y] ;
-	for ( ; x1 <= x2 ; ++x1) 
+	for ( ; x1 <= x2 ; ++x1)
 		*p++ = dwValue ;
 }
 
@@ -516,7 +516,7 @@ void flood(unsigned int* pBitmap, int x, int y, int w, int h,
 			ChildRight = FindRight(pBitmap,ParentLeft+1,y,w,h,w - 1,target_color)-1 ;
 
 			/* Fill line */
-			if (ChildLeft == ChildRight) 
+			if (ChildLeft == ChildRight)
 				pBitmap[ChildRight + y*w] = fill_color ;
 			else
 				DrawHorizontalLine(pBitmap,ChildLeft,ChildRight,y,w,fill_color) ;
@@ -605,7 +605,7 @@ void flood(unsigned int* pBitmap, int x, int y, int w, int h,
 				ChildRight = FindRight(pBitmap,ChildLeft+1,y,w,h,w - 1,target_color)-1 ;
 
 				/* Fill line */
-				if (ChildLeft == ChildRight) 
+				if (ChildLeft == ChildRight)
 					pBitmap[ChildRight + y*w] = fill_color ;
 				else
 					DrawHorizontalLine(pBitmap,ChildLeft,ChildRight,y,w,fill_color) ;

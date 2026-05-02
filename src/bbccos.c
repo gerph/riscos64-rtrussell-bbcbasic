@@ -132,7 +132,7 @@ enum {
 		STEREO, TEMPO, TIMER, TV, TYPE, UNLOCK, VOICE } ;
 
 // Change to a new screen mode:
-static void newmode (short wx, short wy, short cx, short cy, short nc, signed char bc) 
+static void newmode (short wx, short wy, short cx, short cy, short nc, signed char bc)
 {
 	printf ("\033[8;%d;%dt", wy/cy, wx/cx) ;
 
@@ -153,7 +153,7 @@ static void newmode (short wx, short wy, short cx, short cy, short nc, signed ch
 }
 
 //VDU 22,n - MODE n
-static void modechg (char al) 
+static void modechg (char al)
 {
 	short wx, wy, cx, cy, nc ;
 
@@ -211,7 +211,7 @@ static void newline (int *px, int *py)
 		    {
 			usleep (5000) ;
 			stdin_handler (NULL, NULL) ;
-		    } 
+		    }
 		while ((getkey (&ch) == 0) && ((flags & (ESCFLG | KILL)) == 0)) ;
 	    }
 }
@@ -1099,7 +1099,7 @@ void oscli (char *cmd)
 			if (n == 0)
 				return ;
 			StopTimer (UserTimerID) ;
-			UserTimerID = StartTimer (n) ; 
+			UserTimerID = StartTimer (n) ;
 			return ;
 
 		case TV:
@@ -1177,7 +1177,7 @@ void oscli (char *cmd)
 				    }
 				n = fread (buff, 1, 16 - (b & 15), srcfile) ;
 				if (n <= 0) break ;
-				if ((h > 0) && (n > h)) n = h ; 
+				if ((h > 0) && (n > h)) n = h ;
 				memset (path, ' ', 80) ;
 				sprintf (path, "%08X  ", b) ;
 				for (i = 0; i < n; i++)
@@ -1233,10 +1233,10 @@ static int compare (void *src, void *dst, unsigned char type)
 	switch (type)
 	    {
 		case 1:	return	(*(unsigned char*)dst > *(unsigned char*)src) -
-				(*(unsigned char*)dst < *(unsigned char*)src) ; 
+				(*(unsigned char*)dst < *(unsigned char*)src) ;
 
 		case 4: return	(*(unaligned_int*)dst > *(unaligned_int*)src) -
-				(*(unaligned_int*)dst < *(unaligned_int*)src) ; 
+				(*(unaligned_int*)dst < *(unaligned_int*)src) ;
 
 		case 10:
 			if ((*(unaligned_short*)(dst+8) == 0) && (*(unaligned_short*)(src+8) == 0))
@@ -1253,7 +1253,7 @@ static int compare (void *src, void *dst, unsigned char type)
 				s = *(variant *)src ;
 			return (d > s) - (d < s) ;
 		    }
-		    
+		
 		case 8:
 		    {
 			double d = *(unaligned_double *)dst ;
@@ -1326,7 +1326,7 @@ static void shellsort (int dir, int ecx, void* ebp)
 				char *src = ebx + esi * (type & 15) ;
 				char *dst = ebx + edi * (type & 15) ;
 				result = compare (src, dst, type) ;
-				if (result) 
+				if (result)
 					break ;
 			    }
 			if (dir ? result > 0 : result < 0)

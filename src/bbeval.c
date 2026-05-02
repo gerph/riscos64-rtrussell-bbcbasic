@@ -104,7 +104,7 @@ static void setfpu(void) {}
 static double xpower[9] = {1.0e1, 1.0e2, 1.0e4, 1.0e8, 1.0e16, 1.0e32, 1.0e64,
 			   1.0e128, 1.0e256} ;
 #else
-static void setfpu(void) { unsigned int mode = 0x37F; asm ("fldcw %0" : : "m" (*&mode)); } 
+static void setfpu(void) { unsigned int mode = 0x37F; asm ("fldcw %0" : : "m" (*&mode)); }
 static long double xpower[13] = {1.0e1L, 1.0e2L, 1.0e4L, 1.0e8L, 1.0e16L, 1.0e32L, 1.0e64L,
 				1.0e128L, 1.0e256L, 1.0e512L, 1.0e1024L, 1.0e2048L, 1.0e4096L} ;
 #endif
@@ -164,7 +164,7 @@ int str (VAR v, char *dst, int format)
 		n = strlen (dst) ;
 	    }
 
-	if (n < width) 
+	if (n < width)
 	    {
 		memmove (dst + width - n, dst, n + 1) ;
 		memset (dst, ' ', width - n) ;
@@ -264,7 +264,7 @@ static unsigned long long number (int *pcount, int *ptrunc)
 			break ;
 		esi++ ;
 		(*pcount)++ ;
-		if ((n > 0x1999999999999999L) || ((n == 0x1999999999999999L) && 
+		if ((n > 0x1999999999999999L) || ((n == 0x1999999999999999L) &&
 				((al > '5') || *ptrunc)))
 			(*ptrunc)++ ;
 		else
@@ -537,7 +537,7 @@ static void fix2 (VAR *px, VAR *py)
 		long long t = py->f ;
 		if (t != truncl (py->f))
 			error (20, NULL) ; // 'Number too big'
-		py->i.n = t ; 
+		py->i.n = t ;
 		py->i.t = 0 ;
 	    }
 }
@@ -1872,7 +1872,7 @@ VAR item (void)
 				    }
 				else if (n > 1)
 					v.i.n = (rnd() % n) + 1 ;
-				else 
+				else
 				    {
 					prand.l = (unsigned int) n ;
 					prand.h = (n & 0x80000) == 0 ;
@@ -2178,8 +2178,8 @@ VAR item (void)
 			unsigned char ah = *(unsigned char *)esi++ ;
 			v.i.t = 0 ;
 			v.i.n = ((*(unsigned char *)esi++) ^ ((ah << 2) & 0xC0)) ;
-			v.i.n += ((*(unsigned char *)esi++) ^ ((ah << 4) & 0xC0)) * 256 ; 
-			} 
+			v.i.n += ((*(unsigned char *)esi++) ^ ((ah << 4) & 0xC0)) * 256 ;
+			}
 			return v ;
 
 
@@ -2237,7 +2237,7 @@ VAR item (void)
 			    {
 				v.i.n = (v.i.n << 1) | (al - '0') ;
 				al = *esi++ ;
-			    } 
+			    }
 			if ((liston & BIT2) == 0)
 				v.i.n = (v.i.n << 32) >> 32 ;
 			v.i.t = 0 ;
@@ -2414,7 +2414,7 @@ static VAR expr5 (void)
 	signed char op = nxt () ;
 	if (x.s.t == -1)
 		return x ; // string
-	while (1) 
+	while (1)
 	    {
 		if (op == '^')
 		    {
@@ -2437,7 +2437,7 @@ static VAR expr4 (void)
 	VAR x = expr5 () ;
 	if (x.s.t == -1)
 		return x ; // string
-	while (1) 
+	while (1)
 	    {
 		signed char op = *esi ;
 		if ((op == '*') || (op == '/') || (op == TMOD) || (op == TDIV))
@@ -2483,7 +2483,7 @@ static VAR expr3 (void)
 		    }
 		return x ;
 	    }
-	while (1) 
+	while (1)
 	    {
 		signed char op = *esi ;
 		if ((op == '+') || (op == '-') || (op == TSUM))
@@ -2591,7 +2591,7 @@ VAR expr (void)
 	VAR x = expr1 () ;
 	if (x.s.t == -1)
 		return x ; // string
-	while (1) 
+	while (1)
 	    {
 		signed char op = *esi ;
 		if ((op == TOR) || (op == TEOR))
@@ -2810,7 +2810,7 @@ int expra (void *ebp, int ecx, unsigned char type)
 				for (k = 0; k < colsl; k++)
 				    {
 #if !(defined(__GNUC__) && (__GNUC__ >= 7) || defined(__clang__) && (__clang_major__ >= 4))
-					v = math( math (loadn (ptr,type2), '*', loadn (rhs,type2)), 
+					v = math( math (loadn (ptr,type2), '*', loadn (rhs,type2)),
 						  '+', v) ;
 #else
 					long long tmp ;

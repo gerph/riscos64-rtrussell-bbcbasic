@@ -85,6 +85,16 @@ dispatch_queue_t timerqueue ;
 #define MAX_PATH 260
 #define AUDIOLEN 441 * 4
 
+#define BASIC_SAVE_ACORN 0
+#define BASIC_SAVE_RTR   1
+#define RTR_TLINO        0x8D
+#define RTR_TPOINT       0xB0
+#define RTR_TSUM         0xC6
+#define RTR_TWHILE       0xC7
+#define RTR_TCASE        0xC8
+#define RTR_TDATA        0xDC
+#define RTR_TREM         0xF4
+
 // Global variables (external linkage):
 
 void *userRAM = NULL ;
@@ -136,6 +146,7 @@ unsigned int rnd (void) ;	// Return a pseudo-random number
 
 // Interpreter entry point:
 int basic (void *, void *, void *) ;
+char *lexan (char *, char *, unsigned char) ;
 
 // Forward references:
 unsigned char osbget (void*, int*) ;
@@ -248,7 +259,7 @@ static void *mymap (uintptr_t size)
 	    {
 		sscanf (line, "%p-%p", &start, &finish) ;
 		start = (void *)((size_t)start & -0x1000) ; // page align (GCC extension)
-		if (start >= (base + size)) 
+		if (start >= (base + size))
 			return base ;
 		base = (void *)(((size_t)finish + 0xFFF) & -0x1000) ; // page align
 	    }
@@ -460,6 +471,13 @@ void getcsr(int *px, int *py)
 #else
 void getcsr(int *px, int *py)
 {
+    int x;
+    int y;
+
+    if (px == NULL)
+        px = &x;
+    if (py == NULL)
+        py = &y;
     _swix(OS_Byte, _IN(0) | _OUTR(1,2), 135, px, py);
 }
 
@@ -1269,7 +1287,7 @@ void *sysadr (char *name)
 #else
 	void *addr = NULL ;
 	if (addr != NULL)
-		return addr ; 
+		return addr ;
 	return dlsym (RTLD_DEFAULT, name) ;
 #endif
 }
@@ -1316,7 +1334,7 @@ int oscall (int addr)
 
 		case 0xFFF7: // OSCLI
 			oscli (xy) ;
-			return 0 ; 
+			return 0 ;
 
 		default:
             /* FIXME: RISC OS can do this */
@@ -1364,31 +1382,499 @@ static FILE *lookup (void *chan)
 }
 #endif
 
+static int valid_rtr_basic (unsigned char *data, int len)
+{
+	int pos = 0 ;
+
+	while (pos < len)
+	    {
+		int line_len = data[pos] ;
+
+		if (line_len == 0)
+			return 1 ;
+		if ((line_len < 4) || ((pos + line_len) > len))
+			return 0 ;
+		if (data[pos + line_len - 1] != 0x0D)
+			return 0 ;
+		pos += line_len ;
+	    }
+	return 0 ;
+}
+
+static int bbc_extended_token (int prefix, int token)
+{
+	if (prefix == 0xC6)
+	    {
+		switch (token)
+		    {
+			case 0x8E: return 0xC6 ; /* SUM */
+		    }
+	    }
+	else if ((prefix == 0xC7) || (prefix == 0xC8))
+	    {
+		switch (token)
+		    {
+			case 0x8E: return 0xC8 ; /* CASE */
+			case 0x8F: return 0x01 ; /* CIRCLE */
+			case 0x90: return 0x03 ; /* FILL */
+			case 0x91: return 0x05 ; /* ORIGIN */
+			case 0x92: return 0xB0 ; /* POINT */
+			case 0x93: return 0x07 ; /* RECTANGLE */
+			case 0x94: return 0x08 ; /* SWAP */
+			case 0x95: return 0xC7 ; /* WHILE */
+			case 0x96: return 0x0B ; /* WAIT */
+			case 0x97: return 0x04 ; /* MOUSE */
+			case 0x98: return 0x06 ; /* QUIT */
+			case 0x99: return 0x09 ; /* SYS */
+			case 0x9C: return 0x0A ; /* TINT */
+			case 0x9D: return 0x02 ; /* ELLIPSE */
+			case 0x9F: return 0x0C ; /* INSTALL */
+		    }
+	    }
+	return token ;
+}
+
+static int convert_bbc_basic (unsigned char *src, int len, unsigned char *dst, int max)
+{
+	int in = 0 ;
+	int out = 0 ;
+
+	while (in < len)
+	    {
+		int line_start ;
+		int line_len ;
+		int body ;
+		int body_len ;
+		int quoted = 0 ;
+
+		if (src[in] != 0x0D)
+			return -1 ;
+		if (((in + 1) < len) && (src[in + 1] == 0xFF))
+		    {
+			if (out >= max)
+				return -1 ;
+			dst[out++] = 0 ;
+			return out ;
+		    }
+		if ((in + 4) > len)
+			return -1 ;
+
+		line_len = src[in + 3] ;
+		body = in + 4 ;
+		body_len = line_len - 3 ;
+		if ((line_len < 4) || ((in + line_len) >= len))
+			return -1 ;
+		while ((body_len > 1) && ((src[body] == ' ') || (src[body] == '\t')))
+		    {
+			body++ ;
+			body_len-- ;
+		    }
+
+		if ((out + body_len + 3) > max)
+			return -1 ;
+		line_start = out ;
+		dst[out++] = 0 ;
+		dst[out++] = src[in + 2] ;
+		dst[out++] = src[in + 1] ;
+
+		while (body_len-- > 0)
+		    {
+			int ch = src[body++] ;
+
+			if (ch == '"')
+				quoted = !quoted ;
+			else if (!quoted && ((ch == 0xF4) || (ch == 0xDC)))
+			    {
+				dst[out++] = ch ;
+				while (body_len-- > 0)
+					dst[out++] = src[body++] ;
+				break ;
+			    }
+			else if (!quoted && ((ch == 0xC6) || (ch == 0xC7) || (ch == 0xC8)) && (body_len > 0))
+			    {
+				ch = bbc_extended_token (ch, src[body++]) ;
+				body_len-- ;
+			    }
+			dst[out++] = ch ;
+		    }
+		if ((out - line_start) > 255)
+			return -1 ;
+		dst[line_start] = out - line_start ;
+		in += line_len ;
+	    }
+	return -1 ;
+}
+
+static int rtr_to_bbc_extended_token (int token, unsigned char *dst)
+{
+	switch (token)
+	    {
+		case 0x01: dst[0] = 0xC8 ; dst[1] = 0x8F ; return 2 ; /* CIRCLE */
+		case 0x02: dst[0] = 0xC8 ; dst[1] = 0x9D ; return 2 ; /* ELLIPSE */
+		case 0x03: dst[0] = 0xC8 ; dst[1] = 0x90 ; return 2 ; /* FILL */
+		case 0x04: dst[0] = 0xC8 ; dst[1] = 0x97 ; return 2 ; /* MOUSE */
+		case 0x05: dst[0] = 0xC8 ; dst[1] = 0x91 ; return 2 ; /* ORIGIN */
+		case 0x06: dst[0] = 0xC7 ; dst[1] = 0x98 ; return 2 ; /* QUIT */
+		case 0x07: dst[0] = 0xC8 ; dst[1] = 0x93 ; return 2 ; /* RECTANGLE */
+		case 0x08: dst[0] = 0xC8 ; dst[1] = 0x94 ; return 2 ; /* SWAP */
+		case 0x09: dst[0] = 0xC8 ; dst[1] = 0x99 ; return 2 ; /* SYS */
+		case 0x0A: dst[0] = 0xC8 ; dst[1] = 0x9C ; return 2 ; /* TINT */
+		case 0x0B: dst[0] = 0xC7 ; dst[1] = 0x96 ; return 2 ; /* WAIT */
+		case 0x0C: dst[0] = 0x9F ; return 1 ;                 /* INSTALL */
+		case RTR_TPOINT: dst[0] = 0xC8 ; dst[1] = 0x92 ; return 2 ;
+		case RTR_TSUM: dst[0] = 0xC6 ; dst[1] = 0x8E ; return 2 ;
+		case RTR_TWHILE: dst[0] = 0xC8 ; dst[1] = 0x95 ; return 2 ;
+		case RTR_TCASE: dst[0] = 0xC8 ; dst[1] = 0x8E ; return 2 ;
+	    }
+	dst[0] = token ;
+	return 1 ;
+}
+
+static int convert_rtr_basic (unsigned char *src, int len, unsigned char *dst, int max)
+{
+	int in = 0 ;
+	int out = 0 ;
+
+	while (in < len)
+	    {
+		int line_len = src[in] ;
+		int body ;
+		int body_end ;
+		int bbc_len_pos ;
+		int bbc_body_start ;
+		int quoted = 0 ;
+
+		if (line_len == 0)
+		    {
+			if (out == 0)
+			    {
+				if ((out + 1) > max)
+					return -1 ;
+				dst[out++] = 0x0D ;
+			    }
+			if ((out + 1) > max)
+				return -1 ;
+			dst[out++] = 0xFF ;
+			return out ;
+		    }
+		if ((line_len < 4) || ((in + line_len) > len))
+			return -1 ;
+		if ((out + 3 + (out == 0)) > max)
+			return -1 ;
+
+		if (out == 0)
+			dst[out++] = 0x0D ;
+		dst[out++] = src[in + 2] ;
+		dst[out++] = src[in + 1] ;
+		bbc_len_pos = out++ ;
+		bbc_body_start = out ;
+		body = in + 3 ;
+		body_end = in + line_len ;
+
+		while (body < body_end)
+		    {
+			int ch = src[body++] & 0xFF ;
+			unsigned char token[2] ;
+			int token_len ;
+			int i ;
+
+			if (!quoted && (ch == RTR_TLINO) && ((body + 3) <= body_end))
+			    {
+				if ((out + 4) > max)
+					return -1 ;
+				dst[out++] = ch ;
+				dst[out++] = src[body++] ;
+				dst[out++] = src[body++] ;
+				dst[out++] = src[body++] ;
+				continue ;
+			    }
+			if (!quoted && ((ch == RTR_TREM) || (ch == RTR_TDATA)))
+			    {
+				if ((out + 1 + body_end - body) > max)
+					return -1 ;
+				dst[out++] = ch ;
+				while (body < body_end)
+					dst[out++] = src[body++] ;
+				break ;
+			    }
+			if (ch == '"')
+				quoted = !quoted ;
+			if (!quoted)
+				token_len = rtr_to_bbc_extended_token (ch, token) ;
+			else
+			    {
+				token[0] = ch ;
+				token_len = 1 ;
+			    }
+			if ((out + token_len) > max)
+				return -1 ;
+			for (i = 0; i < token_len; i++)
+				dst[out++] = token[i] ;
+		    }
+		if ((out - bbc_body_start + 3) > 255)
+			return -1 ;
+		dst[bbc_len_pos] = out - bbc_body_start + 3 ;
+		in += line_len ;
+	    }
+	return -1 ;
+}
+
+static int text_line_number (char *str, int *nread, unsigned short *plino)
+{
+	char *start = str ;
+	char *end ;
+	unsigned long lino ;
+
+	while ((*str == ' ') || (*str == '\t'))
+		str++ ;
+	if ((*str < '0') || (*str > '9'))
+		return 0 ;
+	lino = strtoul (str, &end, 10) ;
+	if ((end == str) || (lino > 65535))
+		return 0 ;
+	*nread = end - start ;
+	*plino = lino ;
+	return 1 ;
+}
+
+static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, int max)
+{
+	int in = 0 ;
+	int out = 0 ;
+	unsigned char old_liston ;
+
+	old_liston = liston ;
+	liston = 0x30 ;
+	while (in < len)
+	    {
+		char *p ;
+		char *tmp ;
+		int n ;
+		unsigned short lino ;
+
+		p = accs ;
+		while (in < len)
+		    {
+			unsigned char ch = src[in++] ;
+			if (ch == 0x0A)
+				break ;
+			if (ch != 0x0D)
+			    {
+				if ((p - accs) >= (ACCSLEN - 2))
+				    {
+					liston = old_liston ;
+					return -1 ;
+				    }
+				if ((ch < 0x09) || ((ch > 0x0D) && (ch < 0x20)))
+				    {
+					liston = old_liston ;
+					return -1 ;
+				    }
+				*p++ = ch ;
+			    }
+		    }
+		if (p == accs)
+			continue ;
+		*p++ = 0x0D ;
+		*p = 0 ;
+		tmp = accs ;
+		n = 0 ;
+		if (!text_line_number (tmp, &n, &lino))
+		    {
+			liston = old_liston ;
+			return -1 ;
+		    }
+		tmp += n ;
+		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
+		if ((out + 255) > max)
+		    {
+			liston = old_liston ;
+			return -1 ;
+		    }
+		n = lexan (tmp, (char *) dst + out + 3, 1) - ((char *) dst + out) ;
+		if (n > 255)
+		    {
+			liston = old_liston ;
+			return -1 ;
+		    }
+		dst[out] = n ;
+		dst[out + 1] = lino & 0xFF ;
+		dst[out + 2] = lino >> 8 ;
+		out += n ;
+	    }
+	if (out >= max)
+	    {
+		liston = old_liston ;
+		return -1 ;
+	    }
+	dst[out++] = 0 ;
+	liston = old_liston ;
+	return out ;
+}
+
+static int file_type (char *name)
+{
+#ifdef __riscos
+	_kernel_oserror *err ;
+	_kernel_swi_regs regs ;
+
+	regs.r[0] = 17 ;
+	regs.r[1] = (intptr_t) name ;
+	err = _kernel_swi (OS_File, &regs, &regs) ;
+	if ((err != NULL) || (regs.r[0] == 0))
+		return -1 ;
+	if ((regs.r[2] & 0xFFF00000) == 0xFFF00000)
+		return (regs.r[2] >> 8) & 0xFFF ;
+#endif
+	(void) name ;
+	return -1 ;
+}
+
+static int load_basic_file (char *name, void *addr, unsigned int max)
+{
+	FILE *file ;
+	unsigned char *buffer ;
+	long size ;
+	int n ;
+	int converted ;
+	int type ;
+	char *actual_name = name ;
+#ifdef __riscos
+	char typed_name[MAX_PATH + 5] ;
+	int name_len ;
+#endif
+
+	file = fopen (name, "rb") ;
+#ifdef __riscos
+	if ((file == NULL) && (strchr (name, '/') == NULL))
+	    {
+		name_len = strlen (name) ;
+		if (name_len < MAX_PATH)
+		    {
+			sprintf (typed_name, "%s/ffb", name) ;
+			file = fopen (typed_name, "rb") ;
+			if (file == NULL)
+			    {
+				sprintf (typed_name, "%s/fd1", name) ;
+				file = fopen (typed_name, "rb") ;
+			    }
+			if (file == NULL)
+			    {
+				sprintf (typed_name, "%s/1c7", name) ;
+				file = fopen (typed_name, "rb") ;
+			    }
+			if (file == NULL)
+			    {
+				sprintf (typed_name, "%s/bbc", name) ;
+				file = fopen (typed_name, "rb") ;
+			    }
+			if (file != NULL)
+				actual_name = typed_name ;
+		    }
+	    }
+#endif
+	if (file == NULL)
+		return -1 ;
+	if (myfseek (file, 0, SEEK_END) != 0)
+	    {
+		fclose (file) ;
+		return -1 ;
+	    }
+	size = myftell (file) ;
+	if ((size <= 0) || ((unsigned long) size > max))
+	    {
+		fclose (file) ;
+		return -1 ;
+	    }
+	myfseek (file, 0, SEEK_SET) ;
+	buffer = malloc (size) ;
+	if (buffer == NULL)
+	    {
+		fclose (file) ;
+		return -1 ;
+	    }
+	n = fread (buffer, 1, size, file) ;
+	fclose (file) ;
+	if (n == 0)
+	    {
+		free (buffer) ;
+		error (189, "Couldn't read from file") ;
+	    }
+
+	type = file_type (actual_name) ;
+	converted = -1 ;
+	if (type == 0x1C7)
+	    {
+		if (valid_rtr_basic (buffer, n))
+			memcpy (addr, buffer, n) ;
+		else
+			n = -1 ;
+	    }
+	else if (type == 0xFD1)
+	    {
+		converted = convert_text_basic (buffer, n, addr, max) ;
+		n = converted ;
+	    }
+	else if (type == 0xFFB)
+	    {
+		converted = convert_bbc_basic (buffer, n, addr, max) ;
+		if (converted >= 0)
+			n = converted ;
+		else if (valid_rtr_basic (buffer, n))
+			memcpy (addr, buffer, n) ;
+		else
+			n = -1 ;
+	    }
+	else
+	    {
+		converted = convert_bbc_basic (buffer, n, addr, max) ;
+		if (converted >= 0)
+			n = converted ;
+		else
+		    {
+			converted = convert_text_basic (buffer, n, addr, max) ;
+			if (converted >= 0)
+				n = converted ;
+			else if (valid_rtr_basic (buffer, n))
+				memcpy (addr, buffer, n) ;
+			else
+				n = -1 ;
+		    }
+	    }
+	free (buffer) ;
+	return n ;
+}
+
 // Load a file into memory:
 void osload (char *p, void *addr, unsigned int max)
 {
 	int n ;
 	FILE *file ;
 #ifdef __riscos
-    file = fopen (p, "rb") ;
+    n = load_basic_file (p, addr, max) ;
+    if (n < 0)
+        error (214, "File or path not found") ;
 #else
 	if (NULL == setup (path, p, ".bbc", '\0', NULL))
 		error (253, "Bad string") ;
 	file = fopen (path, "rb") ;
-#endif
 	if (file == NULL)
 		error (214, "File or path not found") ;
 	n = fread (addr, 1, max, file) ;
 	fclose (file) ;
+#endif
 	if (n == 0)
 		error (189, "Couldn't read from file") ;
 }
 
 // Save a file from memory:
-void ossave (char *p, void *addr, unsigned int len)
+void ossave (char *p, void *addr, unsigned int len, int format)
 {
 	int n ;
 	FILE *file ;
+	unsigned char *data = addr ;
+	unsigned char *converted = NULL ;
+	int write_len = len ;
 #ifdef __riscos
     file = fopen (p, "w+b") ;
 #else
@@ -1398,12 +1884,81 @@ void ossave (char *p, void *addr, unsigned int len)
 #endif
 	if (file == NULL)
 		error (214, "Couldn't create file") ;
-	n = fwrite (addr, 1, len, file) ;
+	if (format != BASIC_SAVE_RTR)
+	    {
+		converted = malloc (len * 2 + 2) ;
+		if (converted == NULL)
+		    {
+			fclose (file) ;
+			error (0, NULL) ;
+		    }
+		write_len = convert_rtr_basic (addr, len, converted, len * 2 + 2) ;
+		if (write_len < 0)
+		    {
+			free (converted) ;
+			fclose (file) ;
+			error (19, NULL) ;
+		    }
+		data = converted ;
+	    }
+	n = fwrite (data, 1, write_len, file) ;
 	fclose (file) ;
-	if (n < len)
+	free (converted) ;
+	if (n < write_len)
 		error (189, "Couldn't write to file") ;
 #ifdef __riscos
-    _swix(OS_File, _INR(0, 2), 18, p, 0xFFB); /* Set type as BASIC */
+    _swix(OS_File, _INR(0, 2), 18, p, format == BASIC_SAVE_RTR ? 0x1C7 : 0xFFB);
+#endif
+}
+
+int osreadfile (char *p, unsigned char **pdata)
+{
+	FILE *file ;
+	unsigned char *data ;
+	long size ;
+	int n ;
+
+#ifdef __riscos
+	file = fopen (p, "rb") ;
+#else
+	if (NULL == setup (path, p, ".bbc", '\0', NULL))
+		error (253, "Bad string") ;
+	file = fopen (path, "rb") ;
+#endif
+	if (file == NULL)
+		return -1 ;
+	myfseek (file, 0, SEEK_END) ;
+	size = myftell (file) ;
+	myfseek (file, 0, SEEK_SET) ;
+	if (size < 0)
+	    {
+		fclose (file) ;
+		return -1 ;
+	    }
+	data = malloc (size + 1) ;
+	if (data == NULL)
+	    {
+		fclose (file) ;
+		error (0, NULL) ;
+	    }
+	n = fread (data, 1, size, file) ;
+	fclose (file) ;
+	if (n < size)
+	    {
+		free (data) ;
+		error (189, "Couldn't read from file") ;
+	    }
+	*pdata = data ;
+	return n ;
+}
+
+void osfiletype (char *p, int filetype)
+{
+#ifdef __riscos
+	_swix(OS_File, _INR(0, 2), 18, p, filetype);
+#else
+	(void) p ;
+	(void) filetype ;
 #endif
 }
 
@@ -1584,7 +2139,7 @@ unsigned char osbget (void *chan, int *peof)
 				if (peof != NULL)
 					*peof = 1 ;
 				return 0 ;
-			    } 
+			    }
 		    }
 		return buffer[pfcb->p++] ;
 	    }
@@ -1598,7 +2153,7 @@ unsigned char osbget (void *chan, int *peof)
 void osbput (void *chan, unsigned char byte)
 {
 #ifdef __riscos
-    _swix(OS_BGet, _INR(0, 1), chan, byte);
+    _swix(OS_BPut, _INR(0, 1), byte, chan);
 #else
 	if (chan <= (void *) MAX_PORTS)
 	    {
@@ -1834,7 +2389,7 @@ static void UserTimerProc (UINT uUserTimerID, UINT uMsg, void *dwUser, void *dw1
 
 timer_t StartTimer (int period)
 {
-	return timeSetEvent (period, 0, (LPTIMECALLBACK) UserTimerProc, 0, TIME_PERIODIC) ; 
+	return timeSetEvent (period, 0, (LPTIMECALLBACK) UserTimerProc, 0, TIME_PERIODIC) ;
 }
 
 void StopTimer (timer_t timerid)
@@ -1845,7 +2400,7 @@ void StopTimer (timer_t timerid)
 void SystemIO (int flag)
 {
 	if (!flag)
-		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ; 
+		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ;
 }
 #endif
 
@@ -1984,8 +2539,9 @@ int i ;
 char *env, *p, *q ;
 int exitcode = 0 ;
 void *immediate = NULL ;
-FILE *ProgFile, *TestFile ;
+FILE *TestFile ;
 char szAutoRun[MAX_PATH + 1] ;
+int option ;
 
 #ifdef _WIN32
 int orig_stdout = -1 ;
@@ -2026,7 +2582,7 @@ pthread_t hThread = 0 ;
 	// Now commit the initial amount to physical RAM:
 
 	if (base != NULL)
-		userRAM = mmap (base, MaximumRAM, PROT_EXEC | PROT_READ | PROT_WRITE, 
+		userRAM = mmap (base, MaximumRAM, PROT_EXEC | PROT_READ | PROT_WRITE,
 			    MAP_FIXED | MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0) ;
 
 #endif
@@ -2038,11 +2594,11 @@ pthread_t hThread = NULL ;
 	platform = 2 ;
 
 	while ((MaximumRAM >= MINIMUM_RAM) &&
-				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM, 
-						PROT_EXEC | PROT_READ | PROT_WRITE, 
+				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM,
+						PROT_EXEC | PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))) &&
-				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM, 
-						PROT_READ | PROT_WRITE, 
+				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM,
+						PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))))
 		MaximumRAM /= 2 ;
 #endif
@@ -2070,7 +2626,7 @@ pthread_t hThread = NULL ;
 		return 9 ;
 	    }
 
-#if defined __x86_64__ || defined __aarch64__ 
+#if defined __x86_64__ || defined __aarch64__
 	platform |= 0x40 ;
 #endif
 
@@ -2084,6 +2640,9 @@ pthread_t hThread = NULL ;
 	szUserDir = szTempDir - 0x100 ;
 	szLibrary = szUserDir - 0x100 ;
 	szLoadDir = szLibrary - 0x100 ;
+	accs = (char*) userRAM ;
+	buff = (char*) accs + ACCSLEN ;
+	path = (char*) buff + 0x100 ;
 
 // Get path to executable:
 
@@ -2111,10 +2670,25 @@ pthread_t hThread = NULL ;
 
 	for (i = 1; i < argc; i++)
 	    {
-		if (NULL != strstr(argv[i], "-quit")) immediate = (void *) -1 ;
-		if (NULL != strstr(argv[i], "-load")) immediate = (void *) 1 ;
-		if (NULL != strstr(argv[i], "-help")) immediate = (void *) 2 ;
-		if (immediate)
+		option = 0 ;
+		if (0 == strcmp (argv[i], "-quit"))
+		    {
+			immediate = (void *) -1 ;
+			option = 1 ;
+		    }
+		else if (0 == strcmp (argv[i], "-load"))
+		    {
+			immediate = (void *) 1 ;
+			option = 1 ;
+		    }
+		else if (0 == strcmp (argv[i], "-chain"))
+			option = 1 ;
+		else if (0 == strcmp (argv[i], "-help"))
+		    {
+			immediate = (void *) 2 ;
+			option = 1 ;
+		    }
+		if (option)
 		    {
 			argc-- ;
 			while (i++ < argc)
@@ -2129,6 +2703,7 @@ pthread_t hThread = NULL ;
 		printf ("The command syntax is: bbcbasic [option] [bbcfile]\n\n") ;
 		printf ("where <option> is one of:\n") ;
 		printf ("  -help  Display this message.\n") ;
+		printf ("  -chain Run BASIC program <bbcfile> and stay in the interpreter.\n") ;
 		printf ("  -load  Load BASIC program <bbcfile> but don't run it.\n") ;
 		printf ("  -quit  Run BASIC program <bbcfile> and quit when it ends.\n") ;
 		printf ("otherwise run <bbcfile> (if any) and stay in the interpreter.\n") ;
@@ -2163,15 +2738,13 @@ pthread_t hThread = NULL ;
 		progRAM = (void *)(((intptr_t) szCmdLine + strlen(szCmdLine) + 256) & -256) ;
 	    }
 
-	if (*szAutoRun && (NULL != (ProgFile = fopen (szAutoRun, "rb"))))
+	if (*szAutoRun && ((i = load_basic_file (szAutoRun, progRAM, userTOP - progRAM)) >= 0))
 	    {
 		unsigned char *esi = progRAM ;
-		fread (progRAM, 1, userTOP - progRAM, ProgFile) ;
-		fclose (ProgFile) ;
 		while (*esi)
 		    {
-			esi += (int) *esi ; 
-			if (*(esi-1) != 0x0D) 
+			esi += (int) *esi ;
+			if (*(esi-1) != 0x0D)
 			    {
 				fprintf(stderr, "%s isn't a valid internal-format (.bbc) file\r\n",
 						szAutoRun) ;
@@ -2230,11 +2803,11 @@ pthread_t hThread = NULL ;
 #ifdef _WIN32
 	// n.b.  Description of DISABLE_NEWLINE_AUTO_RETURN at MSDN is completely wrong!
 	// What it actually does is to disable converting LF into CRLF, not wrap action.
-	if (GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), (LPDWORD) &orig_stdout)) 
+	if (GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), (LPDWORD) &orig_stdout))
 		SetConsoleMode (GetStdHandle(STD_OUTPUT_HANDLE), orig_stdout | ENABLE_WRAP_AT_EOL_OUTPUT |
                                 ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN) ;
-	if (GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), (LPDWORD) &orig_stdin)) 
-		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ; 
+	if (GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), (LPDWORD) &orig_stdin))
+		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ;
 	hThread = CreateThread (NULL, 0, myThread, 0, 0, NULL) ;
 #elif defined(__riscos)
     /* Nothing to do */

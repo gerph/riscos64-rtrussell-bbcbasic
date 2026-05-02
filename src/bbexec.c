@@ -319,7 +319,7 @@ void modify (VAR v, void *ptr, unsigned char type, signed char op)
 		return ;
 	    }
 	storen (math (loadn (ptr, type), op, v), ptr, type) ;
-} 
+}
 
 // Modify string variable:
 void modifs (VAR v, void *ptr, unsigned char type, signed char op)
@@ -340,7 +340,7 @@ void modifs (VAR v, void *ptr, unsigned char type, signed char op)
 	s.s.p = tmp - (char *) zero ;
 	s.s.l += v.s.l ;
 	stores (s, ptr, type) ;
-} 
+}
 
 // Assign to a numeric variable (supports compound assignment operators):
 static void assign (void *ptr, unsigned char type)
@@ -653,7 +653,7 @@ static void savloc (void *ptr, unsigned char type)
 		*--esp = v.s.l ;
 		*--esp = v.s.p ; // Assumed 32-bits
 	    }
-	else if (type == 136) 
+	else if (type == 136)
 	    {
 		// can't use long long because of ARM alignment requirements
 		*(int *)--esp = ILOAD((char *)ptr + 4) ; // string length
@@ -771,7 +771,7 @@ static void unstack (int count)
 // Do it via the stack to support PROC1(A,B)  DEF PROC1(RETURN B,RETURN A)
 static void unret (void)
 {
-	esp++ ; 
+	esp++ ;
 	int count = *(int *)esp++ ;
 	if (count == 0)
 		return ;
@@ -1027,7 +1027,7 @@ static int structure (void **pedi)
 			if (type != STYPE)
 				error (6, NULL) ; // 'Type mismatch'
 			edi = VLOAD(ptr) ; // descriptor pointer
-			if (((edi > (void *)esp) && ((edi - zero) < himem)) || (edi < (void *)2)) 
+			if (((edi > (void *)esp) && ((edi - zero) < himem)) || (edi < (void *)2))
 				error (10, NULL) ; // 'Bad DIM statement'
 			*pedi = edi ;
 			return ecx + ILOAD(edi) ; // add structure size
@@ -1049,7 +1049,7 @@ static int structure (void **pedi)
 			ecx += eax ;
 			if (edi < ebx)
 			    {
-				VSTORE(ebx, edi) ; 
+				VSTORE(ebx, edi) ;
 				edi = ebx + 2 * sizeof(void *) ; // GCC extension: sizeof(void) = 1
 			    }
 			ebx = edi ;
@@ -1558,7 +1558,7 @@ VAR xeq (void)
 					*--esp = RETCHK ;
 					esi = oldesi - 1 ;
 					for (seq=0; seq<1; seq++) ; // GCC bug?
-					// transfer secret [accs] to formal [esi] 
+					// transfer secret [accs] to formal [esi]
 					esi = argue ((signed char *)accs - 1, esp + 2, 1) ;
 				    }
 				}
@@ -1758,10 +1758,10 @@ VAR xeq (void)
 						if (ptr == NULL)
 							error (16, NULL) ; // 'Syntax error'
 						if (type == 0)
-							error (26, NULL) ; // 'No such variable' 
+							error (26, NULL) ; // 'No such variable'
 						*p++ = type ;
 						VSTORE(p, ptr) ;
-						p += sizeof(void *) ; // GCC extension 
+						p += sizeof(void *) ; // GCC extension
 						count += 1 ;
 					    } ;
 					*buff = count ;
@@ -1831,7 +1831,7 @@ VAR xeq (void)
 					memcpy (edi + 4, accs, v.s.l + 1) ;
 					osload (accs, edi + v.s.l + 5, size) ;
 					newtop = gettop (edi, NULL) ;
-					if (newtop == NULL) 
+					if (newtop == NULL)
 						error (52, NULL) ; // 'Bad library'
 #ifdef PICO
 					libtop = newtop ;
@@ -2032,7 +2032,7 @@ VAR xeq (void)
 				    {
 					VAR v = exprs () ;
 					fixs (v) ;
-					osload (accs, vpage + zero, 
+					osload (accs, vpage + zero,
 						(signed char *)esp - (signed char *)zero - vpage - STACK_NEEDED) ;
 				    }
 				clrtrp () ;
@@ -2263,7 +2263,7 @@ VAR xeq (void)
 					void *chan = channel () ;
 					while (nxt () == ',')
 					    {
-						VAR v ; 
+						VAR v ;
 						esi++ ;
 						v = expr () ;
 						if (v.s.t != -1)
@@ -3154,7 +3154,7 @@ VAR xeq (void)
 				*(void **)esp = esi ;
 				*--esp = WHICHK ;
 
-				if (expri()) 
+				if (expri())
 					break ;
 				esp += 1 + STRIDE ;
 				wsurch (TENDWHILE, TWHILE, 1) ;
@@ -3512,7 +3512,7 @@ VAR xeq (void)
 				int ni = 0, nf = 0 ;
 				heapptr *oldesp = esp ;
 				VAR v = expr () ;
-				long long (*func) (size_t, size_t, size_t, size_t, size_t, size_t, 
+				long long (*func) (size_t, size_t, size_t, size_t, size_t, size_t,
 						   size_t, size_t, size_t, size_t, size_t, size_t) ;
 				PARM parm = {0};
 				void *ptr = NULL ;
@@ -3550,7 +3550,7 @@ VAR xeq (void)
 					v = expr () ;
 					if (v.s.t == -1)
 					    {
-						if ((v.s.l != 0) && 
+						if ((v.s.l != 0) &&
 							(*(v.s.p + v.s.l + (char *) zero - 1) == 0))
 							parm.i[ni++] = (size_t) (v.s.p + zero) ; // use in-situ
 						else
@@ -3600,7 +3600,7 @@ VAR xeq (void)
 #endif
 #endif
 					    }
-					if ((ni > 16) || (nf > 8)) 
+					if ((ni > 16) || (nf > 8))
 						error (31, NULL) ; // 'Incorrect arguments'
 				    }
 
@@ -3608,7 +3608,7 @@ VAR xeq (void)
 				while (ni)
 				    {
 					if (parm.i[--ni] == memhdc)
-						break ; 
+						break ;
 				    }
 #endif
 
@@ -3816,7 +3816,7 @@ VAR xeq (void)
 					    {
 						volatile char *edi = pfree + (char *) zero ; // Emscripten
 						edx += 4 ; // room for structure size
-						ebx = structure ((void **)&edx) ; 
+						ebx = structure ((void **)&edx) ;
 						ISTORE(edi, ebx) ; // structure size
 					    }
 
@@ -3948,7 +3948,7 @@ VAR xeq (void)
 
 						if ((edx + ebx + STACK_NEEDED) > (char *) esp)
 						    {
-							CSTORE(ebp, 0) ; 
+							CSTORE(ebp, 0) ;
 							error (11, NULL) ; // 'DIM space'
 						    }
 
@@ -3956,7 +3956,7 @@ VAR xeq (void)
 
 						if (type == (STYPE + 0x40)) // structure array ?
 						    {
-							char *tmp = edx - ecx ; 
+							char *tmp = edx - ecx ;
 							int eax = arrlen ((void **)&tmp) ;
 							edx += (2 * sizeof(size_t)) * eax ; // 8 or 16
 							while (eax--)
@@ -3993,7 +3993,7 @@ VAR xeq (void)
 								> (char *)esp)
 							error (11, NULL) ; // 'DIM space'
 
-						n = (ebx + 7) & -8 ;	 // data size 
+						n = (ebx + 7) & -8 ;	 // data size
 						edi = (char *) esp - n ; // data pointer
 						n += (eax + ecx + 7) & -8 ; // add descriptors
 						esp -= n >> 2 ;	// make space on stack
@@ -4015,7 +4015,7 @@ VAR xeq (void)
 
 						if (type == (STYPE + 0x40)) // structure array ?
 						    {
-							char *tmp = VLOAD(ebp) ; 
+							char *tmp = VLOAD(ebp) ;
 							int eax = arrlen ((void **)&tmp) ;
 							edi += (2 * sizeof(size_t)) * eax ; // 8 or 16
 							while (eax--)
@@ -4050,7 +4050,7 @@ VAR xeq (void)
 
 					// ------ Re-DIM an existing array or structure ------
 
-					else // compare descriptors to check same dimensions 
+					else // compare descriptors to check same dimensions
 					    {
 						char *edi = VLOAD(ebp) ; // old pointer
 						if (edx < (pfree + (char *) zero))
@@ -4255,7 +4255,7 @@ VAR xeq (void)
 						VLOAD(srcptr + sizeof(void *)), len) ;
 				    }
 
-				else 
+				else
 				    {
 					void *ebp ;
 					ptr = VLOAD(ptr) ;
