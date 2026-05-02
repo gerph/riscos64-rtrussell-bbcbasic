@@ -2799,6 +2799,11 @@ pthread_t hThread = NULL ;
 			    }
 		    }
 	    }
+	else if (*szAutoRun)
+	    {
+		fprintf (stderr, "%s not found\r\n", szAutoRun) ;
+		return 10 ;
+	    }
 	else
 	    {
 		immediate = (void *) 1 ;
