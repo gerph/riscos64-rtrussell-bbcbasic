@@ -3702,9 +3702,13 @@ VAR xeq (void)
                             unsigned char type = output[regno].type;
                             if (type == 10)
                             {
+                                int value ;
+
                                 /* Float value */
                                 v.i.t = 1; /* ? */
-                                v.f = (regno == 10) ? (flags>>28) : regs.r[regno];
+                                value = (regno == 10) ? (int) (flags >> 28) :
+                                        (int) (int32_t) regs.r[regno] ;
+                                v.f = value ;
                                 storen(v, output[regno].ptr, type);
                             }
                             else if (type == 136)
@@ -3721,8 +3725,12 @@ VAR xeq (void)
                             }
                             else if (type == 4)
                             {
+                                int value ;
+
                                 v.i.t = 0;
-                                v.i.n = (regno == 10) ? (flags>>28) : regs.r[regno];
+                                value = (regno == 10) ? (int) (flags >> 28) :
+                                        (int) (int32_t) regs.r[regno] ;
+                                v.i.n = value ;
                                 storen(v, output[regno].ptr, type);
                             }
                         }

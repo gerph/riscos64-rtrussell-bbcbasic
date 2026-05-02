@@ -202,8 +202,7 @@ int strhex (VAR v, char *dst, int field)
 
 	if ((liston & BIT2) == 0)
 	    {
-		int i = n ;
-		if (i != n)
+		if ((n < -0x80000000LL) || (n > 0xFFFFFFFFLL))
 			error (20, NULL) ; // 'Number too big'
 		n &= 0xFFFFFFFF ;
 	    }
