@@ -1641,6 +1641,7 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 {
 	int in = 0 ;
 	int out = 0 ;
+	unsigned short next_lino = 0 ;
 	unsigned char old_liston ;
 
 	old_liston = liston ;
@@ -1679,11 +1680,9 @@ static int convert_text_basic (unsigned char *src, int len, unsigned char *dst, 
 		*p = 0 ;
 		tmp = accs ;
 		n = 0 ;
-		if (!text_line_number (tmp, &n, &lino))
-		    {
-			liston = old_liston ;
-			return -1 ;
-		    }
+		lino = next_lino + 1 ;
+		text_line_number (tmp, &n, &lino) ;
+		next_lino = lino ;
 		tmp += n ;
 		while ((*tmp == 32) || (*tmp == 9)) tmp++ ;
 		if ((out + 255) > max)
@@ -2659,6 +2658,9 @@ pthread_t hThread = NULL ;
 	i = 256 ;
 	if (_NSGetExecutablePath(szLibrary, (unsigned int *)&i))
 #endif
+#ifdef __riscos
+    if (0)
+#endif
 	    {
 		p = realpath (argv[0], NULL) ;
 		if (p)
@@ -2668,22 +2670,24 @@ pthread_t hThread = NULL ;
 		    }
 	    }
 
-	for (i = 1; i < argc; i++)
+	if (argc > 1)
 	    {
 		option = 0 ;
-		if (0 == strcmp (argv[i], "-quit"))
+		if (0 == strcmp (argv[1], "-quit"))
 		    {
 			immediate = (void *) -1 ;
 			option = 1 ;
 		    }
-		else if (0 == strcmp (argv[i], "-load"))
+		else if (0 == strcmp (argv[1], "-load"))
 		    {
 			immediate = (void *) 1 ;
 			option = 1 ;
 		    }
-		else if (0 == strcmp (argv[i], "-chain"))
+		else if (0 == strcmp (argv[1], "-chain"))
+        {
 			option = 1 ;
-		else if (0 == strcmp (argv[i], "-help"))
+        }
+		else if (0 == strcmp (argv[1], "-help"))
 		    {
 			immediate = (void *) 2 ;
 			option = 1 ;
@@ -2691,9 +2695,11 @@ pthread_t hThread = NULL ;
 		if (option)
 		    {
 			argc-- ;
-			while (i++ < argc)
+            i=1;
+			while (i++ <= argc)
+            {
 				argv[i - 1] = argv[i] ;
-			break ;
+            }
 		    }
 	    }
 
@@ -2712,19 +2718,25 @@ pthread_t hThread = NULL ;
 
 	strcpy (szAutoRun, szLibrary) ;
 
+#ifndef __riscos
 	q = strrchr (szAutoRun, '/') ;
 	if (q == NULL) q = strrchr (szAutoRun, '\\') ;
 	p = strrchr (szAutoRun, '.') ;
 
 	if (p > q) *p = '\0' ;
 	strcat (szAutoRun, ".bbc") ;
+#endif
 
+#ifndef __riscos
 	TestFile = fopen (szAutoRun, "rb") ;
 	if (TestFile != NULL)
 		fclose (TestFile) ;
-	else if ((argc >= 2) && (*argv[1] != '-'))
+	else
+#endif
+        if ((argc >= 2) && (*argv[1] != '-'))
 		strcpy (szAutoRun, argv[1]) ;
 
+    printf("Autorun is %s\n", szAutoRun);
 	strcpy (szCmdLine, szAutoRun) ;
 
 	if (argc >= 2)

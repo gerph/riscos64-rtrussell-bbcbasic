@@ -50,7 +50,7 @@ VPATH = ../../src ../../include
 
 
 # C flags for this project
-CFLAGS = 
+CFLAGS =
 
 # Assembler flags
 AFLAGS = -march=armv8-a
