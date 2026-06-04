@@ -2819,12 +2819,18 @@ pthread_t hThread = NULL ;
 
     int ro_available_memory = __heap_end - __heap_base;
     int ro_allocate = ro_available_memory - 1024 * 32;
+    //printf("__heap_end = &%08x\n", __heap_end);
+    //printf("__heap_base = &%08x\n", __heap_base);
+    //printf("ro_allocate = &%08x\n", ro_allocate);
     userRAM = NULL;
     while (userRAM == NULL && ro_allocate >= 32 * 1024)
     {
-        ro_allocate = (ro_allocate * 3 / 4) & ~1023;
-        //printf("Try allocating %i\n", ro_allocate);
+        //printf("Try allocating %i (%i K = %i M)\n", ro_allocate, ro_allocate / 1024, ro_allocate / 1024 / 1024);
         userRAM = malloc(ro_allocate);
+        if (userRAM == NULL)
+        {
+            ro_allocate = ((ro_allocate / 1024) * 3 / 4) * 1024;
+        }
     }
     MaximumRAM = ro_allocate;
 #endif
