@@ -2875,8 +2875,8 @@ pthread_t hThread = NULL ;
 	if (_NSGetExecutablePath(szLibrary, (unsigned int *)&i))
 #endif
 #ifdef __riscos
-    if (0)
-#endif
+    strcpy(szLibrary, argv[0]); /* ARGV[0] is already canonicalised */
+#else
 	    {
 		p = realpath (argv[0], NULL) ;
 		if (p)
@@ -2885,6 +2885,7 @@ pthread_t hThread = NULL ;
 			free (p) ;
 		    }
 	    }
+#endif
 
 	if (argc > 1)
 	    {
@@ -3002,6 +3003,7 @@ pthread_t hThread = NULL ;
 		*szAutoRun = '\0' ;
 	    }
 
+#ifndef __riscos
 	env = getenv ("TMPDIR") ;
 	if (!env) env = getenv ("TMP") ;
 	if (!env) env = getenv ("TEMP") ;
@@ -3012,6 +3014,17 @@ pthread_t hThread = NULL ;
 	if (!env) env = getenv ("APPDATA") ;
 	if (!env) env = getenv ("HOMEPATH") ;
 	if (env) strcpy (szUserDir, env) ;
+#else
+    /* On RISC OS the scrap directory is always the Wimp$ScrapDir, unless it's not set */
+    env = getenv ("Wimp$ScrapDir") ;
+    if (env)
+        strcpy(szTempDir, "<Wimp$ScrapDir>");
+    else
+        strcpy(szTempDir, "$");
+
+    /* Home isn't really used, so we'll just set it to the URD */
+    strcpy(szUserDir, "&");
+#endif
 
 	p = strrchr (szLibrary, '/') ;
 	if (p == NULL) p = strrchr (szLibrary, '\\') ;
@@ -3030,6 +3043,11 @@ pthread_t hThread = NULL ;
 	strcat (szUserDir, "/bbcbasic/") ;
 	mkdir (szUserDir, 0777) ;
 #endif
+#else
+    strcat (szTempDir, ".") ;
+    strcat (szLibrary, ".lib.") ;
+    strcat (szUserDir, ".bbcbasic.") ;
+    mkdir (szUserDir, 0777) ;
 #endif
 
 #ifndef __riscos
